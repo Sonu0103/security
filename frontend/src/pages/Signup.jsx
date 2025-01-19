@@ -1,16 +1,19 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { authAPI, handleApiError } from "../api/apis";
+import toast from "react-hot-toast";
 
 function Signup() {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
-    fullName: "",
+    name: "",
     email: "",
     phone: "",
     password: "",
     confirmPassword: "",
   });
   const [errors, setErrors] = useState({});
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -29,10 +32,12 @@ function Signup() {
 
   const validateForm = () => {
     const newErrors = {};
-    if (!formData.fullName.trim()) newErrors.fullName = "Full name is required";
+    if (!formData.name.trim()) newErrors.name = "Name is required";
     if (!formData.email.trim()) newErrors.email = "Email is required";
     if (!formData.phone.trim()) newErrors.phone = "Phone number is required";
     if (!formData.password) newErrors.password = "Password is required";
+    if (formData.password.length < 6)
+      newErrors.password = "Password must be at least 6 characters";
     if (formData.password !== formData.confirmPassword)
       newErrors.confirmPassword = "Passwords do not match";
 
@@ -40,12 +45,35 @@ function Signup() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (validateForm()) {
-      // Handle signup logic here
-      console.log("Signup attempt with:", formData);
-      navigate("/login"); // Redirect to login after successful signup
+      setIsLoading(true);
+      try {
+        const { confirmPassword, ...registerData } = formData;
+        const { data } = await authAPI.register(registerData);
+
+        // Show success message
+        toast.success("Account created successfully! Please login.");
+
+        // Redirect to login page instead of home
+        navigate("/login", {
+          state: {
+            email: formData.email,
+            message:
+              "Registration successful! Please login with your credentials.",
+          },
+        });
+      } catch (error) {
+        const { message } = handleApiError(error);
+        toast.error(message);
+        setErrors((prev) => ({
+          ...prev,
+          submit: message,
+        }));
+      } finally {
+        setIsLoading(false);
+      }
     }
   };
 
@@ -61,20 +89,18 @@ function Signup() {
               <label className="block text-gray-700 mb-2">Full Name</label>
               <input
                 type="text"
-                name="fullName"
-                value={formData.fullName}
+                name="name"
+                value={formData.name}
                 onChange={handleInputChange}
                 className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 ${
-                  errors.fullName
+                  errors.name
                     ? "border-highlight-red ring-highlight-red/50"
                     : "focus:ring-primary-blue/50"
                 }`}
                 placeholder="Enter your full name"
               />
-              {errors.fullName && (
-                <p className="text-highlight-red text-sm mt-1">
-                  {errors.fullName}
-                </p>
+              {errors.name && (
+                <p className="text-highlight-red text-sm mt-1">{errors.name}</p>
               )}
             </div>
 
@@ -164,11 +190,21 @@ function Signup() {
               )}
             </div>
 
+            {errors.submit && (
+              <p className="text-highlight-red text-sm text-center">
+                {errors.submit}
+              </p>
+            )}
             <button
               type="submit"
-              className="w-full bg-primary-blue text-white py-3 rounded-full hover:bg-blue-600 transition-colors font-semibold"
+              disabled={isLoading}
+              className={`w-full py-3 px-4 text-white rounded-lg ${
+                isLoading
+                  ? "bg-gray-400 cursor-not-allowed"
+                  : "bg-primary-blue hover:bg-blue-600"
+              } transition-colors`}
             >
-              Create Account
+              {isLoading ? "Creating Account..." : "Create Account"}
             </button>
           </form>
 

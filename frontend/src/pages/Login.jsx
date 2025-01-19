@@ -1,13 +1,26 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
+import { authAPI, handleApiError } from "../api/apis";
+import toast from "react-hot-toast";
 
 function Login() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [formData, setFormData] = useState({
-    email: "",
+    email: location.state?.email || "",
     password: "",
   });
   const [errors, setErrors] = useState({});
+  const [isLoading, setIsLoading] = useState(false);
+
+  // Show registration success message if redirected from signup
+  useState(() => {
+    if (location.state?.message) {
+      toast.success(location.state.message);
+      // Clear the message from location state
+      window.history.replaceState({}, document.title);
+    }
+  }, []);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -33,12 +46,36 @@ function Login() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (validateForm()) {
-      // Handle login logic here
-      console.log("Login attempt with:", formData);
-      navigate("/"); // Redirect to home after successful login
+      setIsLoading(true);
+      try {
+        const { data } = await authAPI.login(formData);
+
+        // Save auth data
+        localStorage.setItem("token", data.token);
+        localStorage.setItem("user", JSON.stringify(data.user));
+
+        // Show success message
+        toast.success("Login successful!");
+
+        // Redirect based on role
+        if (data.user.role === "admin") {
+          navigate("/admin/products");
+        } else {
+          navigate("/");
+        }
+      } catch (error) {
+        const { message } = handleApiError(error);
+        toast.error(message);
+        setErrors((prev) => ({
+          ...prev,
+          submit: message,
+        }));
+      } finally {
+        setIsLoading(false);
+      }
     }
   };
 
@@ -108,11 +145,21 @@ function Login() {
               </Link>
             </div>
 
+            {errors.submit && (
+              <p className="text-highlight-red text-sm text-center">
+                {errors.submit}
+              </p>
+            )}
             <button
               type="submit"
-              className="w-full bg-primary-blue text-white py-3 rounded-full hover:bg-blue-600 transition-colors font-semibold"
+              disabled={isLoading}
+              className={`w-full py-3 px-4 text-white rounded-lg ${
+                isLoading
+                  ? "bg-gray-400 cursor-not-allowed"
+                  : "bg-primary-blue hover:bg-blue-600"
+              } transition-colors`}
             >
-              Sign In
+              {isLoading ? "Logging in..." : "Login"}
             </button>
           </form>
 

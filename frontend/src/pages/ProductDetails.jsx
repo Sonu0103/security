@@ -1,109 +1,103 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { HeartIcon as HeartOutline } from "@heroicons/react/24/outline";
 import { HeartIcon as HeartSolid } from "@heroicons/react/24/solid";
-
-const productData = {
-  bats: {
-    id: "bats",
-    name: "Premium Cricket Bat",
-    price: 199.99,
-    images: ["/images/hero1.jpg", "/images/hero2.jpg", "/images/hero3.jpg"],
-    description:
-      "Professional grade cricket bat made from premium English willow. Perfect balance and excellent pickup make this bat a favorite among professional players.",
-    isFavorite: false,
-  },
-  balls: {
-    id: "balls",
-    name: "Professional Cricket Ball",
-    price: 29.99,
-    images: ["/images/hero2.jpg", "/images/hero1.jpg", "/images/hero3.jpg"],
-    description:
-      "High-quality leather cricket ball suitable for professional matches. Hand-stitched for durability and consistent performance.",
-    isFavorite: false,
-  },
-  // Add more products as needed
-};
+import { productAPI, handleApiError } from "../api/apis";
+import { useFavorites } from "../context/FavoritesContext";
+import toast from "react-hot-toast";
 
 function ProductDetails() {
   const { category } = useParams();
-  const [currentImage, setCurrentImage] = useState(0);
-  const [products, setProducts] = useState(productData);
   const navigate = useNavigate();
+  const { addToFavorites, removeFromFavorites, isFavorite } = useFavorites();
+  const [currentImage, setCurrentImage] = useState(0);
+  const [products, setProducts] = useState([]);
+  const [selectedProduct, setSelectedProduct] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const product = products[category];
+  useEffect(() => {
+    fetchProducts();
+  }, [category]);
 
-  if (!product) return <div>Product not found</div>;
+  const fetchProducts = async () => {
+    try {
+      const { data } = await productAPI.getProductsByCategory(category);
+      setProducts(data.products);
 
-  const toggleFavorite = () => {
-    setProducts({
-      ...products,
-      [category]: {
-        ...product,
-        isFavorite: !product.isFavorite,
-      },
-    });
+      // Set the first product as selected if available
+      if (data.products.length > 0) {
+        setSelectedProduct(data.products[0]);
+      }
+    } catch (error) {
+      const { message } = handleApiError(error);
+      toast.error(message);
+    } finally {
+      setIsLoading(false);
+    }
   };
+
+  const toggleFavorite = (productId) => {
+    if (isFavorite(productId)) {
+      removeFromFavorites(productId);
+    } else {
+      const product = products.find((p) => p._id === productId);
+      if (product) {
+        addToFavorites(product);
+      }
+    }
+  };
+
+  if (isLoading) {
+    return <div className="container mx-auto px-4 py-8">Loading...</div>;
+  }
+
+  if (!selectedProduct) {
+    return <div>Product not found</div>;
+  }
 
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        {/* Image Carousel */}
-        <div className="space-y-4">
-          <div className="relative h-96 overflow-hidden rounded-lg">
+        {/* Product Images */}
+        <div>
+          <div className="relative">
             <img
-              src={product.images[currentImage]}
-              alt={product.name}
-              className="w-full h-full object-cover"
+              src={selectedProduct.image}
+              alt={selectedProduct.name}
+              className="w-full h-96 object-cover rounded-lg"
             />
-          </div>
-          <div className="flex space-x-4">
-            {product.images.map((image, index) => (
-              <button
-                key={index}
-                onClick={() => setCurrentImage(index)}
-                className={`w-20 h-20 rounded-lg overflow-hidden ${
-                  currentImage === index
-                    ? "ring-2 ring-primary-blue"
-                    : "opacity-75"
-                }`}
-              >
-                <img
-                  src={image}
-                  alt={`${product.name} view ${index + 1}`}
-                  className="w-full h-full object-cover"
-                />
-              </button>
-            ))}
+            <button
+              onClick={() => toggleFavorite(selectedProduct._id)}
+              className="absolute top-4 right-4 p-2 bg-white rounded-full shadow-md hover:bg-gray-100 transition-colors"
+            >
+              {isFavorite(selectedProduct._id) ? (
+                <HeartSolid className="h-6 w-6 text-highlight-red" />
+              ) : (
+                <HeartOutline className="h-6 w-6" />
+              )}
+            </button>
           </div>
         </div>
 
         {/* Product Info */}
-        <div className="space-y-6">
-          <div className="flex justify-between items-start">
-            <h1 className="text-3xl font-bold text-neutral-darkGray">
-              {product.name}
-            </h1>
-            <button
-              onClick={toggleFavorite}
-              className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-            >
-              {product.isFavorite ? (
-                <HeartSolid className="h-6 w-6 text-highlight-red" />
-              ) : (
-                <HeartOutline className="h-6 w-6 text-neutral-darkGray hover:text-highlight-red" />
-              )}
-            </button>
-          </div>
-          <p className="text-2xl font-bold text-primary-green">
-            ${product.price}
+        <div>
+          <h1 className="text-3xl font-bold text-neutral-darkGray mb-4">
+            {selectedProduct.name}
+          </h1>
+          <p className="text-2xl text-primary-green font-bold mb-6">
+            ${selectedProduct.price}
           </p>
-          <p className="text-gray-600">{product.description}</p>
-          <div className="flex space-x-4">
-            <button className="flex-1 px-8 py-3 bg-accent-yellow text-neutral-darkGray rounded-full font-semibold hover:bg-accent-orange transition-colors">
-              Add to Cart
-            </button>
+          <div className="prose max-w-none mb-6">
+            <p className="text-gray-600">{selectedProduct.description}</p>
           </div>
+          <div className="mb-6">
+            <p className="text-gray-600">
+              Stock: {selectedProduct.stock} available
+            </p>
+          </div>
+          <button className="w-full bg-accent-yellow text-neutral-darkGray py-3 rounded-lg hover:bg-accent-orange transition-colors font-semibold">
+            Add to Cart
+          </button>
         </div>
       </div>
 
@@ -113,31 +107,31 @@ function ProductDetails() {
           Related Products
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
-          {Object.values(products)
-            .filter((p) => p.id !== product.id)
+          {products
+            .filter((p) => p._id !== selectedProduct._id)
             .slice(0, 4)
-            .map((relatedProduct) => (
+            .map((product) => (
               <div
-                key={relatedProduct.id}
+                key={product._id}
                 className="bg-white rounded-lg shadow-md overflow-hidden cursor-pointer hover:shadow-lg transition-shadow"
-                onClick={() => navigate(`/product/${relatedProduct.id}`)}
+                onClick={() => setSelectedProduct(product)}
               >
                 <div className="relative">
                   <img
-                    src={relatedProduct.images[0]}
-                    alt={relatedProduct.name}
+                    src={product.image}
+                    alt={product.name}
                     className="w-full h-48 object-cover"
                   />
-                  {relatedProduct.isFavorite && (
+                  {isFavorite(product._id) && (
                     <HeartSolid className="absolute top-2 right-2 h-6 w-6 text-highlight-red" />
                   )}
                 </div>
                 <div className="p-4">
                   <h3 className="font-semibold text-neutral-darkGray">
-                    {relatedProduct.name}
+                    {product.name}
                   </h3>
                   <p className="text-primary-green font-bold mt-2">
-                    ${relatedProduct.price}
+                    ${product.price}
                   </p>
                 </div>
               </div>

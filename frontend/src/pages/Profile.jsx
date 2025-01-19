@@ -1,18 +1,106 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { PencilIcon } from "@heroicons/react/24/outline";
+import { profileAPI, handleApiError } from "../api/apis";
+import toast from "react-hot-toast";
 
 function Profile() {
   const navigate = useNavigate();
   const [isEditing, setIsEditing] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [user, setUser] = useState(null);
   const [formData, setFormData] = useState({
-    fullName: "John Doe",
-    email: "john@example.com",
-    phone: "+1234567890",
+    name: "",
+    email: "",
+    phone: "",
     currentPassword: "",
     newPassword: "",
     confirmPassword: "",
   });
+
+  useEffect(() => {
+    fetchProfile();
+  }, []);
+
+  const fetchProfile = async () => {
+    try {
+      const { data } = await profileAPI.getProfile();
+      setUser(data.user);
+      setFormData({
+        name: data.user.name,
+        email: data.user.email,
+        phone: data.user.phone,
+        currentPassword: "",
+        newPassword: "",
+        confirmPassword: "",
+      });
+    } catch (error) {
+      const { message } = handleApiError(error);
+      toast.error(message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      // If password fields are filled, update password
+      if (formData.currentPassword && formData.newPassword) {
+        if (formData.newPassword !== formData.confirmPassword) {
+          toast.error("New passwords don't match");
+          return;
+        }
+        await profileAPI.changePassword({
+          currentPassword: formData.currentPassword,
+          newPassword: formData.newPassword,
+        });
+        toast.success("Password updated successfully");
+      }
+
+      // Update profile info
+      const { data } = await profileAPI.updateProfile({
+        name: formData.name,
+        email: formData.email,
+        phone: formData.phone,
+      });
+      setUser(data.user);
+      setIsEditing(false);
+      toast.success("Profile updated successfully");
+    } catch (error) {
+      const { message } = handleApiError(error);
+      toast.error(message);
+    }
+  };
+
+  const handleAvatarChange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please upload an image file");
+      return;
+    }
+
+    // Validate file size (2MB)
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error("Image size should be less than 2MB");
+      return;
+    }
+
+    try {
+      const formData = new FormData();
+      formData.append("avatar", file);
+
+      const { data } = await profileAPI.updateAvatar(formData);
+      setUser(data.user);
+      toast.success("Profile photo updated successfully");
+    } catch (error) {
+      const { message } = handleApiError(error);
+      toast.error(message);
+    }
+  };
 
   // Mock order history data
   const orders = [
@@ -49,12 +137,9 @@ function Profile() {
     }));
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    // Handle profile update logic here
-    console.log("Profile update:", formData);
-    setIsEditing(false);
-  };
+  if (isLoading) {
+    return <div>Loading...</div>;
+  }
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -83,8 +168,8 @@ function Profile() {
                   <label className="block text-gray-700 mb-2">Full Name</label>
                   <input
                     type="text"
-                    name="fullName"
-                    value={formData.fullName}
+                    name="name"
+                    value={formData.name}
                     onChange={handleInputChange}
                     disabled={!isEditing}
                     className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-blue/50 disabled:bg-gray-100"
@@ -262,6 +347,35 @@ function Profile() {
               ))}
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* Profile Image */}
+      <div className="mt-8">
+        <div className="text-center">
+          <div className="relative w-40 h-40 mx-auto mb-4 group">
+            <img
+              src={
+                user?.avatar
+                  ? `${import.meta.env.VITE_BACKEND_URL}${user.avatar}`
+                  : "/default-avatar.jpg"
+              }
+              alt="Profile"
+              className="w-full h-full rounded-full object-cover"
+            />
+            <label className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 rounded-full opacity-0 group-hover:opacity-100 cursor-pointer transition-opacity">
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleAvatarChange}
+                className="hidden"
+              />
+              <span className="text-white text-sm">Change Photo</span>
+            </label>
+          </div>
+          {isEditing && (
+            <p className="text-sm text-gray-500">Click photo to change</p>
+          )}
         </div>
       </div>
     </div>
