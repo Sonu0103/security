@@ -1,84 +1,62 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { PencilIcon, TrashIcon, PlusIcon } from "@heroicons/react/24/outline";
 import ProductModal from "../components/ProductModal";
+import { productAPI, handleApiError } from "../../api/apis";
+import toast from "react-hot-toast";
 
 function Products() {
-  const [products, setProducts] = useState([
-    {
-      id: 1,
-      name: "Premium Cricket Bat",
-      price: 199.99,
-      stock: 25,
-      category: "Bats",
-      image: "/images/hero1.jpg",
-      description: "High-quality cricket bat for professional players",
-      isFeatured: true,
-    },
-    // Add more products as needed
-  ]);
-
+  const [products, setProducts] = useState([]);
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(null);
-  const [feedback, setFeedback] = useState({ type: "", message: "" });
+  const [isLoading, setIsLoading] = useState(true);
 
-  const showFeedback = (type, message) => {
-    setFeedback({ type, message });
-    setTimeout(() => setFeedback({ type: "", message: "" }), 3000);
-  };
+  // Fetch products
+  useEffect(() => {
+    fetchProducts();
+  }, []);
 
-  const handleDelete = (productId) => {
-    setShowDeleteConfirm(productId);
-  };
-
-  const confirmDelete = () => {
-    if (showDeleteConfirm) {
-      setProducts(products.filter((p) => p.id !== showDeleteConfirm));
-      showFeedback("success", "Product deleted successfully");
-      setShowDeleteConfirm(null);
+  const fetchProducts = async () => {
+    try {
+      const { data } = await productAPI.getAllProducts();
+      setProducts(data.products);
+    } catch (error) {
+      const { message } = handleApiError(error);
+      toast.error(message);
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const handleSaveProduct = (productData) => {
+  const handleSave = (newProduct) => {
     if (editingProduct) {
-      // Update existing product
-      setProducts(
-        products.map((p) =>
-          p.id === editingProduct.id
-            ? { ...productData, id: editingProduct.id }
-            : p
-        )
+      setProducts((prev) =>
+        prev.map((p) => (p._id === newProduct._id ? newProduct : p))
       );
-      showFeedback("success", "Product updated successfully");
     } else {
-      // Add new product
-      setProducts([
-        ...products,
-        {
-          ...productData,
-          id: Math.max(...products.map((p) => p.id)) + 1,
-        },
-      ]);
-      showFeedback("success", "Product added successfully");
+      setProducts((prev) => [newProduct, ...prev]);
     }
-    setEditingProduct(null);
     setShowAddModal(false);
+    setEditingProduct(null);
+  };
+
+  const handleDelete = async (productId) => {
+    try {
+      await productAPI.deleteProduct(productId);
+      toast.success("Product deleted successfully");
+      fetchProducts();
+      setShowDeleteConfirm(null);
+    } catch (error) {
+      const { message } = handleApiError(error);
+      toast.error(message);
+    }
   };
 
   return (
     <div className="space-y-6">
       {/* Feedback Message */}
-      {feedback.message && (
-        <div
-          className={`p-4 rounded-lg ${
-            feedback.type === "success"
-              ? "bg-green-100 text-green-800"
-              : "bg-red-100 text-red-800"
-          }`}
-        >
-          {feedback.message}
-        </div>
-      )}
+      {/* Feedback Message */}
+      {/* Feedback Message */}
 
       <div className="flex justify-between items-center">
         <h2 className="text-xl font-bold text-neutral-darkGray">
@@ -112,12 +90,16 @@ function Products() {
             </thead>
             <tbody className="divide-y">
               {products.map((product) => (
-                <tr key={product.id}>
+                <tr key={product._id}>
                   <td className="px-6 py-4">
                     <img
                       src={product.image}
                       alt={product.name}
                       className="h-12 w-12 object-cover rounded"
+                      onError={(e) => {
+                        e.target.src = "/placeholder.png";
+                        console.error("Image load error:", product.image);
+                      }}
                     />
                   </td>
                   <td className="px-6 py-4">{product.name}</td>
@@ -148,7 +130,7 @@ function Products() {
                         <PencilIcon className="h-5 w-5" />
                       </button>
                       <button
-                        onClick={() => handleDelete(product.id)}
+                        onClick={() => setShowDeleteConfirm(product._id)}
                         className="text-highlight-red hover:text-red-600"
                         title="Delete Product"
                       >
@@ -165,12 +147,12 @@ function Products() {
 
       {/* Product Modal */}
       <ProductModal
-        isOpen={showAddModal}
+        isOpen={showAddModal || editingProduct !== null}
         onClose={() => {
           setShowAddModal(false);
           setEditingProduct(null);
         }}
-        onSave={handleSaveProduct}
+        onSave={handleSave}
         editingProduct={editingProduct}
       />
 
@@ -193,7 +175,7 @@ function Products() {
                 Cancel
               </button>
               <button
-                onClick={confirmDelete}
+                onClick={() => handleDelete(showDeleteConfirm)}
                 className="px-4 py-2 bg-highlight-red text-white rounded-lg hover:bg-red-600 transition-colors"
               >
                 Delete

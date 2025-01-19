@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   CubeIcon,
@@ -12,6 +12,15 @@ function AdminLayout({ children }) {
   const location = useLocation();
   const navigate = useNavigate();
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [user, setUser] = useState(null);
+
+  // Get user data on mount
+  useEffect(() => {
+    const storedUser = localStorage.getItem("user");
+    if (storedUser) {
+      setUser(JSON.parse(storedUser));
+    }
+  }, []);
 
   const isActive = (path) => location.pathname === `/admin${path}`;
 
@@ -22,7 +31,9 @@ function AdminLayout({ children }) {
   ];
 
   const handleLogout = () => {
-    // Add logout logic here
+    // Clear auth data
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
     navigate("/login");
   };
 
@@ -71,7 +82,20 @@ function AdminLayout({ children }) {
                 onClick={() => setShowProfileMenu(!showProfileMenu)}
                 className="flex items-center gap-2 text-neutral-darkGray hover:text-primary-blue transition-colors focus:outline-none"
               >
-                <UserCircleIcon className="h-8 w-8" />
+                {user?.avatar ? (
+                  <img
+                    src={`${import.meta.env.VITE_BACKEND_URL}${user.avatar}`}
+                    alt={user.name}
+                    className="h-8 w-8 rounded-full object-cover"
+                  />
+                ) : (
+                  <div className="w-8 h-8 rounded-full bg-primary-blue text-white flex items-center justify-center">
+                    {user?.name?.charAt(0).toUpperCase() || (
+                      <UserCircleIcon className="h-6 w-6" />
+                    )}
+                  </div>
+                )}
+                <span>{user?.name}</span>
                 <ChevronDownIcon
                   className={`h-4 w-4 transition-transform ${
                     showProfileMenu ? "rotate-180" : ""

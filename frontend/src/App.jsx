@@ -16,6 +16,7 @@ import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import Profile from "./pages/Profile";
 import { FavoritesProvider } from "./context/FavoritesContext";
+import { Toaster } from "react-hot-toast";
 
 // Admin imports
 import AdminLayout from "./admin/components/AdminLayout";
@@ -23,55 +24,59 @@ import Products from "./admin/pages/Products";
 import Orders from "./admin/pages/Orders";
 import Users from "./admin/pages/Users";
 import AdminProfile from "./admin/pages/Profile";
+import ProtectedRoute from "./components/auth/ProtectedRoute";
 
 function App() {
   return (
     <FavoritesProvider>
       <Router>
+        <Toaster position="top-right" />
         <Routes>
-          {/* Admin Routes */}
+          {/* Admin Routes - Protected */}
           <Route
             path="/admin/*"
             element={
-              <Routes>
-                <Route
-                  path="/products"
-                  element={
-                    <AdminLayout>
-                      <Products />
-                    </AdminLayout>
-                  }
-                />
-                <Route
-                  path="/orders"
-                  element={
-                    <AdminLayout>
-                      <Orders />
-                    </AdminLayout>
-                  }
-                />
-                <Route
-                  path="/users"
-                  element={
-                    <AdminLayout>
-                      <Users />
-                    </AdminLayout>
-                  }
-                />
-                <Route
-                  path="/profile"
-                  element={
-                    <AdminLayout>
-                      <AdminProfile />
-                    </AdminLayout>
-                  }
-                />
-                {/* Redirect /admin to /admin/products */}
-                <Route
-                  path="/"
-                  element={<Navigate to="/admin/products" replace />}
-                />
-              </Routes>
+              <ProtectedRoute allowedRoles={["admin"]}>
+                <Routes>
+                  <Route
+                    path="/products"
+                    element={
+                      <AdminLayout>
+                        <Products />
+                      </AdminLayout>
+                    }
+                  />
+                  <Route
+                    path="/orders"
+                    element={
+                      <AdminLayout>
+                        <Orders />
+                      </AdminLayout>
+                    }
+                  />
+                  <Route
+                    path="/users"
+                    element={
+                      <AdminLayout>
+                        <Users />
+                      </AdminLayout>
+                    }
+                  />
+                  <Route
+                    path="/profile"
+                    element={
+                      <AdminLayout>
+                        <AdminProfile />
+                      </AdminLayout>
+                    }
+                  />
+                  {/* Redirect /admin to /admin/products */}
+                  <Route
+                    path="/"
+                    element={<Navigate to="/admin/products" replace />}
+                  />
+                </Routes>
+              </ProtectedRoute>
             }
           />
 

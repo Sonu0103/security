@@ -21,6 +21,7 @@ export default {
           red: "#dc3545",
           gold: "#ffbf00",
         },
+        "primary-blue": "#2563eb",
       },
     },
   },

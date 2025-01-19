@@ -1,78 +1,65 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   MagnifyingGlassIcon,
   EyeIcon,
   XMarkIcon,
 } from "@heroicons/react/24/outline";
+import { orderAPI, handleApiError } from "../../api/apis";
+import toast from "react-hot-toast";
 
 function Orders() {
-  const [orders, setOrders] = useState([
-    {
-      id: "ORD-123",
-      customer: {
-        name: "John Doe",
-        email: "john@example.com",
-      },
-      date: "2024-03-15",
-      status: "Delivered",
-      paymentStatus: "Paid",
-      total: 229.98,
-      items: [
-        {
-          id: "bats",
-          name: "Premium Cricket Bat",
-          price: 199.99,
-          quantity: 1,
-        },
-        {
-          id: "balls",
-          name: "Professional Cricket Ball",
-          price: 29.99,
-          quantity: 1,
-        },
-      ],
-    },
-    // Add more sample orders
-  ]);
-
+  const [orders, setOrders] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [dateRange, setDateRange] = useState({ from: "", to: "" });
   const [selectedOrder, setSelectedOrder] = useState(null);
-  const [feedback, setFeedback] = useState({ type: "", message: "" });
+  const [isLoading, setIsLoading] = useState(true);
 
   const orderStatuses = [
-    "Pending",
-    "Processing",
-    "Shipped",
-    "Delivered",
-    "Cancelled",
+    "pending",
+    "processing",
+    "shipped",
+    "delivered",
+    "cancelled",
   ];
 
-  const showFeedback = (type, message) => {
-    setFeedback({ type, message });
-    setTimeout(() => setFeedback({ type: "", message: "" }), 3000);
+  useEffect(() => {
+    fetchOrders();
+  }, []);
+
+  const fetchOrders = async () => {
+    try {
+      const { data } = await orderAPI.getAllOrders();
+      setOrders(data.orders);
+    } catch (error) {
+      const { message } = handleApiError(error);
+      toast.error(message);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const updateOrderStatus = (orderId, newStatus) => {
-    setOrders(
-      orders.map((order) =>
-        order.id === orderId ? { ...order, status: newStatus } : order
-      )
-    );
-    showFeedback("success", "Order status updated successfully");
+  const updateOrderStatus = async (orderId, newStatus) => {
+    try {
+      await orderAPI.updateOrder(orderId, { status: newStatus });
+      toast.success("Order status updated successfully");
+      fetchOrders();
+    } catch (error) {
+      const { message } = handleApiError(error);
+      toast.error(message);
+    }
   };
 
   const filteredOrders = orders.filter((order) => {
     const matchesSearch =
       searchTerm === "" ||
-      order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.customer.email.toLowerCase().includes(searchTerm.toLowerCase());
+      order._id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      order.user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      order.user.email.toLowerCase().includes(searchTerm.toLowerCase());
 
     const matchesStatus = statusFilter === "" || order.status === statusFilter;
 
-    const orderDate = new Date(order.date);
+    const orderDate = new Date(order.createdAt);
     const matchesDateRange =
       (!dateRange.from || orderDate >= new Date(dateRange.from)) &&
       (!dateRange.to || orderDate <= new Date(dateRange.to));
@@ -83,18 +70,7 @@ function Orders() {
   return (
     <div className="space-y-6">
       {/* Feedback Message */}
-      {feedback.message && (
-        <div
-          className={`p-4 rounded-lg ${
-            feedback.type === "success"
-              ? "bg-green-100 text-green-800"
-              : "bg-red-100 text-red-800"
-          }`}
-        >
-          {feedback.message}
-        </div>
-      )}
-
+      {/* Feedback Message */}
       {/* Search and Filters */}
       <div className="bg-white rounded-lg shadow-md p-6">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -167,41 +143,41 @@ function Orders() {
             </thead>
             <tbody className="divide-y">
               {filteredOrders.map((order) => (
-                <tr key={order.id}>
-                  <td className="px-6 py-4 font-medium">{order.id}</td>
+                <tr key={order._id}>
+                  <td className="px-6 py-4 font-medium">{order._id}</td>
                   <td className="px-6 py-4">
                     <div>
-                      <p className="font-medium">{order.customer.name}</p>
+                      <p className="font-medium">{order.user.name}</p>
                       <p className="text-sm text-gray-500">
-                        {order.customer.email}
+                        {order.user.email}
                       </p>
                     </div>
                   </td>
                   <td className="px-6 py-4">
-                    {new Date(order.date).toLocaleDateString()}
+                    {new Date(order.createdAt).toLocaleDateString()}
                   </td>
-                  <td className="px-6 py-4">${order.total.toFixed(2)}</td>
+                  <td className="px-6 py-4">${order.totalAmount.toFixed(2)}</td>
                   <td className="px-6 py-4">
                     <span
                       className={`inline-block px-2 py-1 text-sm rounded-full ${
-                        order.paymentStatus === "Paid"
+                        order.paymentStatus === "paid"
                           ? "bg-green-100 text-green-800"
                           : "bg-yellow-100 text-yellow-800"
                       }`}
                     >
-                      {order.paymentStatus}
+                      {order.paymentStatus === "paid" ? "Paid" : "Pending"}
                     </span>
                   </td>
                   <td className="px-6 py-4">
                     <select
                       value={order.status}
                       onChange={(e) =>
-                        updateOrderStatus(order.id, e.target.value)
+                        updateOrderStatus(order._id, e.target.value)
                       }
                       className={`px-2 py-1 rounded border ${
-                        order.status === "Delivered"
+                        order.status === "delivered"
                           ? "bg-green-50 border-green-200"
-                          : order.status === "Cancelled"
+                          : order.status === "cancelled"
                           ? "bg-red-50 border-red-200"
                           : "bg-yellow-50 border-yellow-200"
                       }`}
@@ -236,7 +212,7 @@ function Orders() {
             <div className="p-6">
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-bold text-neutral-darkGray">
-                  Order Details - {selectedOrder.id}
+                  Order Details - {selectedOrder._id}
                 </h2>
                 <button
                   onClick={() => setSelectedOrder(null)}
@@ -253,15 +229,11 @@ function Orders() {
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <p className="text-gray-600">Name</p>
-                      <p className="font-medium">
-                        {selectedOrder.customer.name}
-                      </p>
+                      <p className="font-medium">{selectedOrder.user.name}</p>
                     </div>
                     <div>
                       <p className="text-gray-600">Email</p>
-                      <p className="font-medium">
-                        {selectedOrder.customer.email}
-                      </p>
+                      <p className="font-medium">{selectedOrder.user.email}</p>
                     </div>
                   </div>
                 </div>
@@ -273,7 +245,7 @@ function Orders() {
                     <div>
                       <p className="text-gray-600">Order Date</p>
                       <p className="font-medium">
-                        {new Date(selectedOrder.date).toLocaleDateString()}
+                        {new Date(selectedOrder.createdAt).toLocaleDateString()}
                       </p>
                     </div>
                     <div>
@@ -281,12 +253,12 @@ function Orders() {
                       <select
                         value={selectedOrder.status}
                         onChange={(e) =>
-                          updateOrderStatus(selectedOrder.id, e.target.value)
+                          updateOrderStatus(selectedOrder._id, e.target.value)
                         }
                         className={`mt-1 px-2 py-1 rounded border ${
-                          selectedOrder.status === "Delivered"
+                          selectedOrder.status === "delivered"
                             ? "bg-green-50 border-green-200"
-                            : selectedOrder.status === "Cancelled"
+                            : selectedOrder.status === "cancelled"
                             ? "bg-red-50 border-red-200"
                             : "bg-yellow-50 border-yellow-200"
                         }`}
@@ -302,12 +274,14 @@ function Orders() {
                       <p className="text-gray-600">Payment Status</p>
                       <span
                         className={`inline-block px-2 py-1 text-sm rounded-full ${
-                          selectedOrder.paymentStatus === "Paid"
+                          selectedOrder.paymentStatus === "paid"
                             ? "bg-green-100 text-green-800"
                             : "bg-yellow-100 text-yellow-800"
                         }`}
                       >
-                        {selectedOrder.paymentStatus}
+                        {selectedOrder.paymentStatus === "paid"
+                          ? "Paid"
+                          : "Pending"}
                       </span>
                     </div>
                   </div>
@@ -319,7 +293,7 @@ function Orders() {
                   <div className="space-y-4">
                     {selectedOrder.items.map((item) => (
                       <div
-                        key={item.id}
+                        key={item.product}
                         className="flex items-center justify-between border-b border-gray-200 pb-4 last:border-0 last:pb-0"
                       >
                         <div className="flex items-center gap-4">
@@ -369,7 +343,7 @@ function Orders() {
                     <div className="flex justify-between border-t border-gray-200 pt-2 mt-2">
                       <p className="font-semibold">Total</p>
                       <p className="font-bold text-lg">
-                        ${selectedOrder.total.toFixed(2)}
+                        ${selectedOrder.totalAmount.toFixed(2)}
                       </p>
                     </div>
                   </div>

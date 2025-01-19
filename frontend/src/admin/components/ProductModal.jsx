@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
 import { XMarkIcon } from "@heroicons/react/24/outline";
+import { toast } from "react-hot-toast";
+import { productAPI, handleApiError } from "../../api/apis";
 
 function ProductModal({ isOpen, onClose, onSave, editingProduct }) {
   const [formData, setFormData] = useState({
@@ -9,20 +11,21 @@ function ProductModal({ isOpen, onClose, onSave, editingProduct }) {
     price: "",
     stock: "",
     isFeatured: false,
+    image: null,
   });
   const [imagePreview, setImagePreview] = useState(null);
   const [errors, setErrors] = useState({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const categories = [
     "Bats",
     "Balls",
-    "Kits",
-    "Protection",
+    "Protection Gear",
     "Clothing",
-    "Shoes",
+    "Accessories",
+    "Training Equipment",
   ];
 
-  // Reset form when modal opens/closes or editingProduct changes
   useEffect(() => {
     if (editingProduct) {
       setFormData({
@@ -32,6 +35,7 @@ function ProductModal({ isOpen, onClose, onSave, editingProduct }) {
         price: editingProduct.price,
         stock: editingProduct.stock,
         isFeatured: editingProduct.isFeatured || false,
+        image: null,
       });
       setImagePreview(editingProduct.image);
     } else {
@@ -42,6 +46,7 @@ function ProductModal({ isOpen, onClose, onSave, editingProduct }) {
         price: "",
         stock: "",
         isFeatured: false,
+        image: null,
       });
       setImagePreview(null);
     }
@@ -54,7 +59,6 @@ function ProductModal({ isOpen, onClose, onSave, editingProduct }) {
       ...prev,
       [name]: type === "checkbox" ? checked : value,
     }));
-    // Clear error when user starts typing
     if (errors[name]) {
       setErrors((prev) => ({ ...prev, [name]: "" }));
     }
@@ -62,13 +66,34 @@ function ProductModal({ isOpen, onClose, onSave, editingProduct }) {
 
   const handleImageChange = (e) => {
     const file = e.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreview(reader.result);
-      };
-      reader.readAsDataURL(file);
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith("image/")) {
+      setErrors((prev) => ({
+        ...prev,
+        image: "Please upload an image file",
+      }));
+      return;
     }
+
+    // Validate file size (2MB)
+    if (file.size > 2 * 1024 * 1024) {
+      setErrors((prev) => ({
+        ...prev,
+        image: "Image size should be less than 2MB",
+      }));
+      return;
+    }
+
+    setFormData((prev) => ({ ...prev, image: file }));
+
+    // Create preview URL
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setImagePreview(reader.result);
+    };
+    reader.readAsDataURL(file);
   };
 
   const validateForm = () => {
@@ -82,17 +107,77 @@ function ProductModal({ isOpen, onClose, onSave, editingProduct }) {
     if (!formData.stock) newErrors.stock = "Stock quantity is required";
     if (formData.stock < 0)
       newErrors.stock = "Stock quantity cannot be negative";
-    if (!imagePreview) newErrors.image = "Product image is required";
+
+    // Image validation
+    if (!editingProduct && !formData.image) {
+      newErrors.image = "Product image is required";
+    }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (validateForm()) {
-      onSave({ ...formData, image: imagePreview });
-      onClose();
+    if (!validateForm() || isSubmitting) return;
+
+    setIsSubmitting(true);
+    try {
+      const formDataToSend = new FormData();
+
+      // Convert price and stock to numbers
+      const numericPrice = parseFloat(formData.price);
+      const numericStock = parseInt(formData.stock, 10);
+
+      // Append all form fields to FormData
+      formDataToSend.append("name", formData.name.trim());
+      formDataToSend.append("description", formData.description.trim());
+      formDataToSend.append("category", formData.category);
+      formDataToSend.append("price", numericPrice);
+      formDataToSend.append("stock", numericStock);
+      formDataToSend.append("isFeatured", formData.isFeatured);
+
+      // Append image if it exists
+      if (formData.image) {
+        formDataToSend.append("image", formData.image);
+      }
+
+      // Show loading toast
+      const loadingToast = toast.loading("Saving product...");
+
+      try {
+        let response;
+        if (editingProduct) {
+          response = await productAPI.updateProduct(
+            editingProduct._id,
+            formDataToSend
+          );
+        } else {
+          response = await productAPI.createProduct(formDataToSend);
+        }
+
+        // Dismiss loading toast and show success
+        toast.dismiss(loadingToast);
+        toast.success(
+          editingProduct
+            ? "Product updated successfully"
+            : "Product created successfully"
+        );
+
+        // Wait for the response before closing
+        await onSave(response.data.product);
+        onClose();
+      } catch (error) {
+        // Dismiss loading toast and show error
+        toast.dismiss(loadingToast);
+        throw error;
+      }
+    } catch (error) {
+      console.error("Error details:", error);
+      const { message } = handleApiError(error);
+      toast.error(message);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -274,6 +359,10 @@ function ProductModal({ isOpen, onClose, onSave, editingProduct }) {
                           src={imagePreview}
                           alt="Preview"
                           className="mx-auto max-h-64 object-contain"
+                          onError={(e) => {
+                            e.target.src = "/placeholder.png";
+                            console.error("Preview image load error");
+                          }}
                         />
                       ) : (
                         <div className="py-8">
@@ -336,9 +425,14 @@ function ProductModal({ isOpen, onClose, onSave, editingProduct }) {
               </button>
               <button
                 type="submit"
-                className="px-6 py-2 bg-primary-blue text-white rounded-lg hover:bg-blue-600 transition-colors"
+                disabled={isSubmitting}
+                className={`px-6 py-2 ${
+                  isSubmitting
+                    ? "bg-gray-400 cursor-not-allowed"
+                    : "bg-primary-blue hover:bg-blue-600"
+                } text-white rounded-lg transition-colors`}
               >
-                Save Product
+                {isSubmitting ? "Saving..." : "Save Product"}
               </button>
             </div>
           </form>

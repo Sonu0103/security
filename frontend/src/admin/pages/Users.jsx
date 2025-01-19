@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   TrashIcon,
   EyeIcon,
@@ -7,81 +7,58 @@ import {
   XMarkIcon,
 } from "@heroicons/react/24/outline";
 import EditUserModal from "../components/EditUserModal";
+import { userAPI, handleApiError } from "../../api/apis";
+import toast from "react-hot-toast";
 
 function Users() {
-  const [users, setUsers] = useState([
-    {
-      id: 1,
-      name: "John Doe",
-      email: "john@example.com",
-      joinDate: "2024-01-15",
-      role: "Customer",
-      status: "Active",
-      orders: 5,
-      lastLogin: "2024-03-20",
-    },
-    {
-      id: 2,
-      name: "Jane Smith",
-      email: "jane@example.com",
-      joinDate: "2024-02-20",
-      role: "Admin",
-      status: "Active",
-      orders: 3,
-      lastLogin: "2024-03-19",
-    },
-    // Add more users as needed
-  ]);
-
+  const [users, setUsers] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [roleFilter, setRoleFilter] = useState("");
   const [dateRange, setDateRange] = useState({ from: "", to: "" });
   const [selectedUser, setSelectedUser] = useState(null);
   const [editingUser, setEditingUser] = useState(null);
-  const [feedback, setFeedback] = useState({ type: "", message: "" });
+  const [isLoading, setIsLoading] = useState(true);
 
-  const roles = ["Admin", "Customer"];
+  useEffect(() => {
+    fetchUsers();
+  }, []);
 
-  const showFeedback = (type, message) => {
-    setFeedback({ type, message });
-    setTimeout(() => setFeedback({ type: "", message: "" }), 3000);
+  const fetchUsers = async () => {
+    try {
+      const { data } = await userAPI.getAllUsers();
+      setUsers(data.users);
+    } catch (error) {
+      const { message } = handleApiError(error);
+      toast.error(message);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const toggleUserStatus = (userId) => {
-    setUsers(
-      users.map((user) =>
-        user.id === userId
-          ? {
-              ...user,
-              status: user.status === "Active" ? "Inactive" : "Active",
-            }
-          : user
-      )
-    );
-    showFeedback("success", "User status updated successfully");
+  const handleEditUser = async (userData) => {
+    try {
+      await userAPI.updateUser(editingUser._id, userData);
+      toast.success("User updated successfully");
+      fetchUsers();
+      setEditingUser(null);
+    } catch (error) {
+      const { message } = handleApiError(error);
+      toast.error(message);
+    }
   };
 
-  const updateUserRole = (userId, newRole) => {
-    setUsers(
-      users.map((user) =>
-        user.id === userId
-          ? {
-              ...user,
-              role: newRole,
-            }
-          : user
-      )
-    );
-    showFeedback("success", "User role updated successfully");
-  };
+  const handleDeleteUser = async (userId) => {
+    if (!window.confirm("Are you sure you want to delete this user?")) return;
 
-  const handleEditUser = (userData) => {
-    setUsers(
-      users.map((user) =>
-        user.id === userData.id ? { ...user, ...userData } : user
-      )
-    );
-    showFeedback("success", "User updated successfully");
+    try {
+      await userAPI.deleteUser(userId);
+      toast.success("User deleted successfully");
+      fetchUsers();
+      if (selectedUser?._id === userId) setSelectedUser(null);
+    } catch (error) {
+      const { message } = handleApiError(error);
+      toast.error(message);
+    }
   };
 
   const filteredUsers = users.filter((user) => {
@@ -92,7 +69,7 @@ function Users() {
 
     const matchesRole = roleFilter === "" || user.role === roleFilter;
 
-    const userDate = new Date(user.joinDate);
+    const userDate = new Date(user.createdAt);
     const matchesDateRange =
       (!dateRange.from || userDate >= new Date(dateRange.from)) &&
       (!dateRange.to || userDate <= new Date(dateRange.to));
@@ -100,21 +77,12 @@ function Users() {
     return matchesSearch && matchesRole && matchesDateRange;
   });
 
+  if (isLoading) {
+    return <div>Loading...</div>;
+  }
+
   return (
     <div className="space-y-6">
-      {/* Feedback Message */}
-      {feedback.message && (
-        <div
-          className={`p-4 rounded-lg ${
-            feedback.type === "success"
-              ? "bg-green-100 text-green-800"
-              : "bg-red-100 text-red-800"
-          }`}
-        >
-          {feedback.message}
-        </div>
-      )}
-
       {/* Search and Filters */}
       <div className="bg-white rounded-lg shadow-md p-6">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -138,11 +106,8 @@ function Users() {
               className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-blue/50"
             >
               <option value="">All Roles</option>
-              {roles.map((role) => (
-                <option key={role} value={role}>
-                  {role}
-                </option>
-              ))}
+              <option value="admin">Admin</option>
+              <option value="customer">Customer</option>
             </select>
           </div>
 
@@ -180,66 +145,61 @@ function Users() {
               <tr className="bg-gray-50 text-left">
                 <th className="px-6 py-3">Name</th>
                 <th className="px-6 py-3">Email</th>
-                <th className="px-6 py-3">Role</th>
                 <th className="px-6 py-3">Join Date</th>
-                <th className="px-6 py-3">Last Login</th>
-                <th className="px-6 py-3">Orders</th>
+                <th className="px-6 py-3">Role</th>
                 <th className="px-6 py-3">Status</th>
                 <th className="px-6 py-3">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y">
               {filteredUsers.map((user) => (
-                <tr key={user.id}>
-                  <td className="px-6 py-4 font-medium">{user.name}</td>
+                <tr key={user._id}>
+                  <td className="px-6 py-4">{user.name}</td>
                   <td className="px-6 py-4">{user.email}</td>
                   <td className="px-6 py-4">
-                    <select
-                      value={user.role}
-                      onChange={(e) => updateUserRole(user.id, e.target.value)}
-                      className="px-2 py-1 rounded border bg-gray-50"
+                    {new Date(user.createdAt).toLocaleDateString()}
+                  </td>
+                  <td className="px-6 py-4">
+                    <span
+                      className={`inline-block px-2 py-1 text-sm rounded-full ${
+                        user.role === "admin"
+                          ? "bg-purple-100 text-purple-800"
+                          : "bg-blue-100 text-blue-800"
+                      }`}
                     >
-                      {roles.map((role) => (
-                        <option key={role} value={role}>
-                          {role}
-                        </option>
-                      ))}
-                    </select>
+                      {user.role}
+                    </span>
                   </td>
                   <td className="px-6 py-4">
-                    {new Date(user.joinDate).toLocaleDateString()}
-                  </td>
-                  <td className="px-6 py-4">
-                    {new Date(user.lastLogin).toLocaleDateString()}
-                  </td>
-                  <td className="px-6 py-4">{user.orders}</td>
-                  <td className="px-6 py-4">
-                    <button
-                      onClick={() => toggleUserStatus(user.id)}
-                      className={`px-2 py-1 rounded-full text-sm ${
-                        user.status === "Active"
+                    <span
+                      className={`inline-block px-2 py-1 text-sm rounded-full ${
+                        user.status === "active"
                           ? "bg-green-100 text-green-800"
                           : "bg-red-100 text-red-800"
                       }`}
                     >
                       {user.status}
-                    </button>
+                    </span>
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3">
                       <button
                         onClick={() => setSelectedUser(user)}
-                        className="text-primary-blue hover:text-blue-600"
-                        title="View Details"
+                        className="text-gray-600 hover:text-blue-600"
                       >
                         <EyeIcon className="h-5 w-5" />
                       </button>
                       <button
                         onClick={() => setEditingUser(user)}
-                        className="text-primary-blue hover:text-blue-600"
-                        title="Edit User"
+                        className="text-gray-600 hover:text-green-600"
                       >
                         <PencilIcon className="h-5 w-5" />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteUser(user._id)}
+                        className="text-gray-600 hover:text-red-600"
+                      >
+                        <TrashIcon className="h-5 w-5" />
                       </button>
                     </div>
                   </td>
@@ -250,7 +210,7 @@ function Users() {
         </div>
       </div>
 
-      {/* Enhanced User Details Modal */}
+      {/* User Details Modal */}
       {selectedUser && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
@@ -299,7 +259,7 @@ function Users() {
                       <p className="text-gray-600">Status</p>
                       <span
                         className={`inline-block px-2 py-1 text-sm rounded-full ${
-                          selectedUser.status === "Active"
+                          selectedUser.status === "active"
                             ? "bg-green-100 text-green-800"
                             : "bg-red-100 text-red-800"
                         }`}
@@ -317,18 +277,8 @@ function Users() {
                     <div>
                       <p className="text-gray-600">Join Date</p>
                       <p className="font-medium">
-                        {new Date(selectedUser.joinDate).toLocaleDateString()}
+                        {new Date(selectedUser.createdAt).toLocaleDateString()}
                       </p>
-                    </div>
-                    <div>
-                      <p className="text-gray-600">Last Login</p>
-                      <p className="font-medium">
-                        {new Date(selectedUser.lastLogin).toLocaleDateString()}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-gray-600">Total Orders</p>
-                      <p className="font-medium">{selectedUser.orders}</p>
                     </div>
                   </div>
                 </div>
