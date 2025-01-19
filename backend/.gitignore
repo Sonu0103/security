@@ -1,19 +1,41 @@
 # Dependencies
 /node_modules
 
+# Images
+/public/images/*
+/uploads/*
+/images/*
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.svg
+*.ico
+*.webp
+
+# Package files
+package-lock.json
+yarn.lock
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
 # Environment files
 .env
 .env.local
-.env.development.local
-.env.test.local
-.env.production.local
+.env.development
+.env.test
+.env.production
+
+# IDE files
+.idea/
+.vscode/
+*.swp
+*.swo
 
 # Logs
 logs
 *.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
 
 # Runtime data
 pids
@@ -27,9 +49,5 @@ lib-cov
 # Coverage directory used by tools like istanbul
 coverage
 
-# Editor directories and files
-.idea
-.vscode
-*.swp
-*.swo
+# Misc
 .DS_Store 

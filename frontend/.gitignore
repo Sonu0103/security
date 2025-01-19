@@ -7,8 +7,25 @@
 /coverage
 
 # Production
-/dist
 /build
+
+# Images
+/public/images/*
+/src/assets/images/*
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.svg
+*.ico
+*.webp
+
+# Package files
+package-lock.json
+yarn.lock
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
 # Environment files
 .env
@@ -17,10 +34,14 @@
 .env.test.local
 .env.production.local
 
-# Logs
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
+# IDE files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Misc
+.DS_Store
 
 # Editor directories and files
 .vscode/*
