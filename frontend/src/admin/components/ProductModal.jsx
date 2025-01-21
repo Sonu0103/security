@@ -12,6 +12,12 @@ function ProductModal({ isOpen, onClose, onSave, editingProduct }) {
     stock: "",
     isFeatured: false,
     image: null,
+    brand: "",
+    weight: "",
+    dimensions: "",
+    material: "",
+    warranty: "",
+    specifications: [],
   });
   const [imagePreview, setImagePreview] = useState(null);
   const [errors, setErrors] = useState({});
@@ -36,6 +42,12 @@ function ProductModal({ isOpen, onClose, onSave, editingProduct }) {
         stock: editingProduct.stock,
         isFeatured: editingProduct.isFeatured || false,
         image: null,
+        brand: editingProduct.brand || "",
+        weight: editingProduct.weight || "",
+        dimensions: editingProduct.dimensions || "",
+        material: editingProduct.material || "",
+        warranty: editingProduct.warranty || "",
+        specifications: editingProduct.specifications || [],
       });
       setImagePreview(editingProduct.image);
     } else {
@@ -47,6 +59,12 @@ function ProductModal({ isOpen, onClose, onSave, editingProduct }) {
         stock: "",
         isFeatured: false,
         image: null,
+        brand: "",
+        weight: "",
+        dimensions: "",
+        material: "",
+        warranty: "",
+        specifications: [],
       });
       setImagePreview(null);
     }
@@ -136,6 +154,15 @@ function ProductModal({ isOpen, onClose, onSave, editingProduct }) {
       formDataToSend.append("price", numericPrice);
       formDataToSend.append("stock", numericStock);
       formDataToSend.append("isFeatured", formData.isFeatured);
+      formDataToSend.append("brand", formData.brand);
+      formDataToSend.append("weight", formData.weight);
+      formDataToSend.append("dimensions", formData.dimensions);
+      formDataToSend.append("material", formData.material);
+      formDataToSend.append("warranty", formData.warranty);
+      formDataToSend.append(
+        "specifications",
+        JSON.stringify(formData.specifications)
+      );
 
       // Append image if it exists
       if (formData.image) {
