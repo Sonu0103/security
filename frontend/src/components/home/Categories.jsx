@@ -33,6 +33,11 @@ function Categories() {
     return acc;
   }, {});
 
+  // Add a helper function to convert category names to URL-friendly format
+  const getUrlFriendlyCategory = (category) => {
+    return category.toLowerCase().replace(/\s+/g, "-");
+  };
+
   if (isLoading) {
     return (
       <div className="container mx-auto px-4 py-16">
@@ -52,7 +57,11 @@ function Categories() {
             <div
               key={category}
               className="bg-neutral-white rounded-lg shadow-md overflow-hidden hover:shadow-xl transition-shadow cursor-pointer"
-              onClick={() => navigate(`/product/${category.toLowerCase()}`)}
+              onClick={() =>
+                navigate(
+                  `/products/category/${getUrlFriendlyCategory(category)}`
+                )
+              }
             >
               <img
                 src={products[0]?.image || "/default-category.jpg"}
