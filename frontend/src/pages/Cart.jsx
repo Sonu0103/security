@@ -1,47 +1,43 @@
-import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { TrashIcon } from "@heroicons/react/24/outline";
+import { useCart } from "../context/CartContext";
+import { useEffect, useState } from "react";
+import { toast } from "react-hot-toast";
 
 function Cart() {
   const navigate = useNavigate();
-  const [cartItems, setCartItems] = useState([
-    {
-      id: "bats",
-      name: "Premium Cricket Bat",
-      price: 199.99,
-      image: "/images/hero1.jpg",
-      quantity: 1,
-    },
-    {
-      id: "balls",
-      name: "Professional Cricket Ball",
-      price: 29.99,
-      image: "/images/hero2.jpg",
-      quantity: 2,
-    },
-  ]);
-
-  const updateQuantity = (productId, newQuantity) => {
-    if (newQuantity < 1) return;
-    setCartItems(
-      cartItems.map((item) =>
-        item.id === productId ? { ...item, quantity: newQuantity } : item
-      )
-    );
-  };
-
-  const removeItem = (productId) => {
-    setCartItems(cartItems.filter((item) => item.id !== productId));
-  };
-
-  const subtotal = cartItems.reduce(
-    (sum, item) => sum + item.price * item.quantity,
-    0
-  );
+  const { cartItems, updateCartItem, removeFromCart, cartTotal, loading } =
+    useCart();
+  const [updatingItems, setUpdatingItems] = useState({});
   const shipping = 10;
-  const total = subtotal + shipping;
+  const total = cartTotal + shipping;
 
-  if (cartItems.length === 0) {
+  // Check authentication
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      toast.error("Please login to view your cart");
+      navigate("/login");
+      return;
+    }
+  }, [navigate]);
+
+  // Helper function to get full image URL
+  const getFullImageUrl = (imagePath) => {
+    if (!imagePath) return "/default-product.jpg";
+    if (imagePath.startsWith("http")) return imagePath;
+    return `${import.meta.env.VITE_BACKEND_URL}${imagePath}`;
+  };
+
+  if (loading) {
+    return (
+      <div className="container mx-auto px-4 py-16">
+        <div className="text-center">Loading...</div>
+      </div>
+    );
+  }
+
+  if (!cartItems || cartItems.length === 0) {
     return (
       <div className="container mx-auto px-4 py-16">
         <div className="text-center">
@@ -53,7 +49,7 @@ function Cart() {
           </p>
           <button
             onClick={() => navigate("/")}
-            className="bg-primary-blue text-white px-6 py-2 rounded-full hover:bg-blue-600 transition-colors"
+            className="bg-primary-blue text-white px-6 py-2 rounded-lg hover:bg-blue-600 transition-colors"
           >
             Continue Shopping
           </button>
@@ -62,51 +58,94 @@ function Cart() {
     );
   }
 
+  const handleQuantityChange = async (productId, newQuantity, stock) => {
+    try {
+      if (newQuantity < 1 || newQuantity > stock) return;
+
+      setUpdatingItems((prev) => ({ ...prev, [productId]: true }));
+      await updateCartItem(productId, newQuantity);
+    } catch (error) {
+      toast.error("Failed to update quantity");
+    } finally {
+      setUpdatingItems((prev) => ({ ...prev, [productId]: false }));
+    }
+  };
+
+  const handleRemoveItem = async (productId) => {
+    try {
+      setUpdatingItems((prev) => ({ ...prev, [productId]: true }));
+      await removeFromCart(productId);
+    } catch (error) {
+      toast.error("Failed to remove item");
+    } finally {
+      setUpdatingItems((prev) => ({ ...prev, [productId]: false }));
+    }
+  };
+
   return (
     <div className="container mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold text-neutral-darkGray mb-8">
         Shopping Cart
       </h1>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Cart Items */}
         <div className="lg:col-span-2 space-y-4">
           {cartItems.map((item) => (
             <div
-              key={item.id}
+              key={item.product._id}
               className="bg-white rounded-lg shadow-md p-4 flex items-center gap-4"
             >
               <img
-                src={item.image}
-                alt={item.name}
+                src={getFullImageUrl(item.product.image)}
+                alt={item.product.name}
                 className="w-24 h-24 object-cover rounded-lg cursor-pointer"
-                onClick={() => navigate(`/product/${item.id}`)}
+                onClick={() => navigate(`/product/${item.product._id}`)}
               />
               <div className="flex-grow">
                 <h3 className="text-lg font-semibold text-neutral-darkGray">
-                  {item.name}
+                  {item.product.name}
                 </h3>
                 <p className="text-primary-green font-bold">
-                  ${(item.price * item.quantity).toFixed(2)}
+                  ${(item.product.price * item.quantity).toFixed(2)}
                 </p>
                 <div className="flex items-center gap-4 mt-2">
                   <div className="flex items-center border rounded">
                     <button
-                      onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                      className="px-3 py-1 hover:bg-gray-100 transition-colors"
+                      onClick={() =>
+                        handleQuantityChange(
+                          item.product._id,
+                          item.quantity - 1,
+                          item.product.stock
+                        )
+                      }
+                      className="px-3 py-1 hover:bg-gray-100 transition-colors disabled:opacity-50"
+                      disabled={
+                        item.quantity <= 1 || updatingItems[item.product._id]
+                      }
                     >
                       -
                     </button>
                     <span className="px-3 py-1 border-x">{item.quantity}</span>
                     <button
-                      onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                      className="px-3 py-1 hover:bg-gray-100 transition-colors"
+                      onClick={() =>
+                        handleQuantityChange(
+                          item.product._id,
+                          item.quantity + 1,
+                          item.product.stock
+                        )
+                      }
+                      className="px-3 py-1 hover:bg-gray-100 transition-colors disabled:opacity-50"
+                      disabled={
+                        item.quantity >= item.product.stock ||
+                        updatingItems[item.product._id]
+                      }
                     >
                       +
                     </button>
                   </div>
                   <button
-                    onClick={() => removeItem(item.id)}
-                    className="text-highlight-red hover:text-red-700 transition-colors"
+                    onClick={() => handleRemoveItem(item.product._id)}
+                    className="text-highlight-red hover:text-red-700 transition-colors disabled:opacity-50"
+                    disabled={updatingItems[item.product._id]}
                   >
                     <TrashIcon className="h-5 w-5" />
                   </button>
@@ -116,7 +155,6 @@ function Cart() {
           ))}
         </div>
 
-        {/* Order Summary */}
         <div className="lg:col-span-1">
           <div className="bg-white rounded-lg shadow-md p-6">
             <h2 className="text-xl font-bold text-neutral-darkGray mb-4">
@@ -125,7 +163,7 @@ function Cart() {
             <div className="space-y-3 text-gray-600">
               <div className="flex justify-between">
                 <span>Subtotal</span>
-                <span>${subtotal.toFixed(2)}</span>
+                <span>${cartTotal.toFixed(2)}</span>
               </div>
               <div className="flex justify-between">
                 <span>Shipping</span>
@@ -140,7 +178,7 @@ function Cart() {
             </div>
             <button
               onClick={() => navigate("/checkout")}
-              className="w-full mt-6 bg-accent-yellow text-neutral-darkGray py-3 rounded-full font-semibold hover:bg-accent-orange transition-colors"
+              className="w-full mt-6 bg-accent-yellow text-neutral-darkGray py-3 rounded-lg font-semibold hover:bg-accent-orange transition-colors"
             >
               Proceed to Checkout
             </button>
