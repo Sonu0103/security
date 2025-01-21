@@ -2,22 +2,31 @@ const express = require("express");
 const router = express.Router();
 const { protect, authorize } = require("../middleware/auth");
 const {
-  getAllOrders,
-  getOrder,
   createOrder,
+  getUserOrders,
+  getAllOrders,
+  getOrderDetails,
   updateOrder,
   deleteOrder,
-  getMyOrders,
+  handleEsewaSuccess,
+  handleEsewaFailure,
 } = require("../controllers/orderController");
 
-// Customer routes
-router.post("/", protect, createOrder);
-router.get("/my-orders", protect, getMyOrders);
+// Public routes for eSewa callbacks
+router.get("/esewa/success", handleEsewaSuccess);
+router.get("/esewa/failure", handleEsewaFailure);
+
+// Protected routes
+router.use(protect);
+router.route("/").post(createOrder).get(getUserOrders);
 
 // Admin routes
-router.get("/", protect, authorize("admin"), getAllOrders);
-router.get("/:id", protect, authorize("admin"), getOrder);
-router.put("/:id", protect, authorize("admin"), updateOrder);
-router.delete("/:id", protect, authorize("admin"), deleteOrder);
+router.route("/admin").get(authorize("admin"), getAllOrders);
+
+router
+  .route("/admin/:id")
+  .get(authorize("admin"), getOrderDetails)
+  .put(authorize("admin"), updateOrder)
+  .delete(authorize("admin"), deleteOrder);
 
 module.exports = router;

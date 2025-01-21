@@ -1,4 +1,5 @@
 const User = require("../models/User");
+const Cart = require("../models/Cart");
 const ErrorHandler = require("../utils/errorHandler");
 const generateToken = require("../utils/jwtToken");
 
@@ -24,6 +25,12 @@ exports.register = async (req, res, next) => {
       email,
       password,
       phone,
+    });
+
+    // Create empty cart for new user
+    await Cart.create({
+      user: user._id,
+      items: [],
     });
 
     console.log("User created successfully:", user._id);

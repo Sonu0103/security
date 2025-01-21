@@ -8,12 +8,14 @@ const {
   deleteProduct,
   getProductsByCategory,
   getFeaturedProducts,
+  getProduct,
 } = require("../controllers/productController");
 
 // Public routes
 router.get("/", getProducts);
 router.get("/featured", getFeaturedProducts);
 router.get("/category/:category", getProductsByCategory);
+router.get("/:id", getProduct);
 
 // Protected admin routes
 router.post("/", protect, authorize("admin"), createProduct);

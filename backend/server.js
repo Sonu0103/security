@@ -14,6 +14,8 @@ const productRoutes = require("./routes/product");
 const orderRoutes = require("./routes/order");
 const profileRoutes = require("./routes/profile");
 const adminProfileRoutes = require("./routes/adminProfile");
+const wishlistRoutes = require("./routes/wishlist");
+const cartRoutes = require("./routes/cart");
 
 // Load env vars
 dotenv.config();
@@ -35,20 +37,37 @@ app.use(
   })
 );
 
-// Add static folder for images
-app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+// Configure static file serving with caching options
+app.use(
+  "/uploads",
+  express.static(path.join(__dirname, "uploads"), {
+    maxAge: "1h", // Cache for 1 hour
+    etag: true,
+    lastModified: true,
+    setHeaders: (res, path) => {
+      // Set CORS headers
+      res.setHeader("Access-Control-Allow-Origin", "*");
+      res.setHeader("Cache-Control", "public, max-age=3600"); // 1 hour in seconds
+    },
+  })
+);
 
-// Create uploads directory if it doesn't exist
-const uploadDir = path.join(__dirname, "uploads/avatars");
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
+// Ensure upload directories exist
+const createUploadDirs = () => {
+  const dirs = [
+    path.join(__dirname, "uploads"),
+    path.join(__dirname, "uploads/avatars"),
+    path.join(__dirname, "uploads/products"),
+  ];
 
-// Create uploads directories if they don't exist
-const productUploadsDir = path.join(__dirname, "uploads/products");
-if (!fs.existsSync(productUploadsDir)) {
-  fs.mkdirSync(productUploadsDir, { recursive: true });
-}
+  dirs.forEach((dir) => {
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+  });
+};
+
+createUploadDirs();
 
 // Mount Routes
 app.use("/api/auth", authRoutes);
@@ -57,6 +76,8 @@ app.use("/api/products", productRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/profile", profileRoutes);
 app.use("/api/admin/profile", adminProfileRoutes);
+app.use("/api/wishlist", wishlistRoutes);
+app.use("/api/cart", cartRoutes);
 
 // Error Handler (Should be last piece of middleware)
 app.use(errorMiddleware);

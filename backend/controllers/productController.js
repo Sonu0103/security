@@ -67,7 +67,7 @@ exports.createProduct = async (req, res, next) => {
     // Add full URL to image path in response
     const productWithFullUrl = {
       ...product.toObject(),
-      image: `${process.env.BACKEND_URL}${imageUrl}`,
+      image: getFullImageUrl(product.image),
     };
 
     res.status(201).json({
@@ -90,9 +90,7 @@ exports.getProducts = async (req, res, next) => {
     // Add full URL to image paths
     const productsWithFullUrls = products.map((product) => ({
       ...product.toObject(),
-      image: product.image.startsWith("http")
-        ? product.image
-        : `${process.env.BACKEND_URL}${product.image}`,
+      image: getFullImageUrl(product.image),
     }));
 
     res.status(200).json({
@@ -170,13 +168,44 @@ exports.deleteProduct = async (req, res, next) => {
 // @access  Public
 exports.getProductsByCategory = async (req, res, next) => {
   try {
-    const products = await Product.find({ category: req.params.category });
+    const categoryParam = req.params.category.toLowerCase();
+    const categoryMap = {
+      "protection-gear": "Protection Gear",
+      "training-equipment": "Training Equipment",
+      bats: "Bats",
+      balls: "Balls",
+      clothing: "Clothing",
+      accessories: "Accessories",
+    };
+
+    const category = categoryMap[categoryParam];
+
+    // Add debug logs
+    console.log("Category parameter:", categoryParam);
+    console.log("Mapped category:", category);
+
+    if (!category) {
+      return next(new ErrorHandler("Category not found", 404));
+    }
+
+    const products = await Product.find({ category });
+
+    // Add debug log
+    console.log("Found products:", products.length);
+
+    // Add full URL to image paths
+    const productsWithFullUrls = products.map((product) => ({
+      ...product.toObject(),
+      image: getFullImageUrl(product.image),
+    }));
 
     res.status(200).json({
       success: true,
-      products,
+      count: products.length,
+      products: productsWithFullUrls,
     });
   } catch (error) {
+    console.error("Error in getProductsByCategory:", error);
     next(error);
   }
 };
@@ -191,9 +220,7 @@ exports.getFeaturedProducts = async (req, res, next) => {
     // Add full URL to image paths
     const productsWithFullUrls = products.map((product) => ({
       ...product.toObject(),
-      image: product.image.startsWith("http")
-        ? product.image
-        : `${process.env.BACKEND_URL}${product.image}`,
+      image: getFullImageUrl(product.image),
     }));
 
     res.status(200).json({
@@ -202,5 +229,43 @@ exports.getFeaturedProducts = async (req, res, next) => {
     });
   } catch (error) {
     next(error);
+  }
+};
+
+// @desc    Get single product
+// @route   GET /api/products/:id
+// @access  Public
+exports.getProduct = async (req, res, next) => {
+  try {
+    const product = await Product.findById(req.params.id);
+
+    if (!product) {
+      return next(new ErrorHandler("Product not found", 404));
+    }
+
+    // Add full URL to image path
+    const productWithFullUrl = {
+      ...product.toObject(),
+      image: getFullImageUrl(product.image),
+    };
+
+    res.status(200).json({
+      success: true,
+      product: productWithFullUrl,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Helper function to get full image URL
+const getFullImageUrl = (imagePath) => {
+  try {
+    if (!imagePath) return "/default-product.jpg"; // Provide a default image
+    if (imagePath.startsWith("http")) return imagePath;
+    return `${process.env.BACKEND_URL || "http://localhost:5000"}${imagePath}`;
+  } catch (error) {
+    console.error("Error creating image URL:", error);
+    return "/default-product.jpg"; // Return default image on error
   }
 };

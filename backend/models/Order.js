@@ -14,18 +14,22 @@ const orderSchema = new mongoose.Schema(
           ref: "Product",
           required: true,
         },
-        name: String,
-        price: Number,
         quantity: {
           type: Number,
           required: true,
-          min: 1,
         },
-        image: String,
+        price: {
+          type: Number,
+          required: true,
+        },
       },
     ],
     shippingAddress: {
-      name: {
+      fullName: {
+        type: String,
+        required: true,
+      },
+      email: {
         type: String,
         required: true,
       },
@@ -55,17 +59,11 @@ const orderSchema = new mongoose.Schema(
       required: true,
       enum: ["cash", "esewa"],
     },
-    paymentStatus: {
-      type: String,
-      required: true,
-      enum: ["pending", "paid", "failed"],
-      default: "pending",
-    },
-    status: {
-      type: String,
-      required: true,
-      enum: ["pending", "processing", "shipped", "delivered", "cancelled"],
-      default: "pending",
+    paymentResult: {
+      status: String,
+      transactionId: String,
+      amount: Number,
+      referenceId: String,
     },
     totalAmount: {
       type: Number,
@@ -75,6 +73,36 @@ const orderSchema = new mongoose.Schema(
       type: Number,
       required: true,
       default: 10,
+    },
+    status: {
+      type: String,
+      enum: [
+        "pending",
+        "processing",
+        "shipped",
+        "delivered",
+        "cancelled",
+        "Payment Pending",
+      ],
+      default: "pending",
+    },
+    isPaid: {
+      type: Boolean,
+      default: false,
+    },
+    paidAt: {
+      type: Date,
+    },
+    isDelivered: {
+      type: Boolean,
+      default: false,
+    },
+    deliveredAt: {
+      type: Date,
+    },
+    trackingInfo: {
+      type: String,
+      default: "",
     },
   },
   {
