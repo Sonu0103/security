@@ -6,17 +6,22 @@ import {
   UserIcon,
   ArrowRightOnRectangleIcon,
   Cog6ToothIcon,
+  ClipboardDocumentListIcon,
 } from "@heroicons/react/24/outline";
 import { useFavorites } from "../../context/FavoritesContext";
+import { useCart } from "../../context/CartContext";
 import toast from "react-hot-toast";
+import { checkAuth } from "../../utils/auth";
 
 function Header() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { favorites } = useFavorites();
+  const { favorites = [] } = useFavorites();
+  const { cartItems = [] } = useCart();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [user, setUser] = useState(null);
   const dropdownRef = useRef(null);
+  const { isAuthenticated } = checkAuth();
 
   // Check auth status on mount and when localStorage changes
   useEffect(() => {
@@ -136,27 +141,48 @@ function Header() {
 
           {/* Auth/Profile Section */}
           <div className="flex items-center space-x-4">
-            {/* Wishlist */}
-            <Link
-              to="/wishlist"
-              className="text-neutral-darkGray hover:text-primary-blue transition-colors relative"
-            >
-              <HeartIcon className="h-6 w-6" />
-              <span className="absolute -top-2 -right-2 bg-highlight-red text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-                {favorites.length}
-              </span>
-            </Link>
+            {isAuthenticated ? (
+              <>
+                <Link
+                  to="/wishlist"
+                  className="text-neutral-darkGray hover:text-primary-blue transition-colors relative"
+                >
+                  <HeartIcon className="h-6 w-6" />
+                  {favorites?.length > 0 && (
+                    <span className="absolute -top-2 -right-2 bg-highlight-red text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                      {favorites.length}
+                    </span>
+                  )}
+                </Link>
 
-            {/* Cart */}
-            <Link
-              to="/cart"
-              className="text-neutral-darkGray hover:text-primary-blue transition-colors relative"
-            >
-              <ShoppingCartIcon className="h-6 w-6" />
-              <span className="absolute -top-2 -right-2 bg-highlight-red text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-                0
-              </span>
-            </Link>
+                <Link
+                  to="/cart"
+                  className="text-neutral-darkGray hover:text-primary-blue transition-colors relative"
+                >
+                  <ShoppingCartIcon className="h-6 w-6" />
+                  {cartItems?.length > 0 && (
+                    <span className="absolute -top-2 -right-2 bg-highlight-red text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                      {cartItems.length}
+                    </span>
+                  )}
+                </Link>
+              </>
+            ) : (
+              <>
+                <Link
+                  to="/login"
+                  className="text-neutral-darkGray hover:text-primary-blue transition-colors relative"
+                >
+                  <HeartIcon className="h-6 w-6" />
+                </Link>
+                <Link
+                  to="/login"
+                  className="text-neutral-darkGray hover:text-primary-blue transition-colors relative"
+                >
+                  <ShoppingCartIcon className="h-6 w-6" />
+                </Link>
+              </>
+            )}
 
             {user ? (
               // Profile Dropdown
@@ -188,6 +214,13 @@ function Header() {
                     >
                       <UserIcon className="h-5 w-5 mr-2" />
                       Profile
+                    </Link>
+                    <Link
+                      to="/orders"
+                      className="flex items-center px-4 py-2 text-gray-700 hover:bg-gray-100"
+                    >
+                      <ClipboardDocumentListIcon className="h-5 w-5 mr-2" />
+                      Orders
                     </Link>
                     {user.role === "admin" && (
                       <Link

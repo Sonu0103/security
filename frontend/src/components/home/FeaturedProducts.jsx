@@ -2,13 +2,16 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { HeartIcon as HeartOutline } from "@heroicons/react/24/outline";
 import { HeartIcon as HeartSolid } from "@heroicons/react/24/solid";
+import { ShoppingCartIcon } from "@heroicons/react/24/outline";
 import { productAPI, handleApiError } from "../../api/apis";
 import { useFavorites } from "../../context/FavoritesContext";
+import { useCart } from "../../context/CartContext";
 import toast from "react-hot-toast";
 
 function FeaturedProducts() {
   const navigate = useNavigate();
   const { addToFavorites, removeFromFavorites, isFavorite } = useFavorites();
+  const { addToCart } = useCart();
   const [products, setProducts] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -58,20 +61,18 @@ function FeaturedProducts() {
         <h2 className="text-3xl font-bold text-neutral-darkGray mb-12 text-center">
           Featured Products
         </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-8">
           {products.map((product) => (
             <div
               key={product._id}
-              className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-xl transition-shadow cursor-pointer"
-              onClick={() =>
-                navigate(`/product/${product.category.toLowerCase()}`)
-              }
+              className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow"
+              onClick={() => navigate(`/product/${product._id}`)}
             >
               <div className="relative">
                 <img
                   src={product.image}
                   alt={product.name}
-                  className="w-full h-48 object-cover"
+                  className="w-full h-64 object-cover"
                 />
                 <button
                   onClick={(e) => handleFavoriteClick(e, product)}
@@ -97,12 +98,21 @@ function FeaturedProducts() {
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    // Add to cart logic here
-                    toast.success("Added to cart");
+                    if (product.stock > 0) {
+                      addToCart(product._id);
+                    } else {
+                      toast.error("Product is out of stock");
+                    }
                   }}
-                  className="w-full bg-accent-yellow text-neutral-darkGray py-2 rounded hover:bg-accent-orange transition-colors font-semibold"
+                  disabled={product.stock === 0}
+                  className={`w-full py-2 rounded-lg font-semibold flex items-center justify-center gap-2 ${
+                    product.stock > 0
+                      ? "bg-primary-blue text-white hover:bg-blue-600"
+                      : "bg-gray-200 text-gray-500 cursor-not-allowed"
+                  }`}
                 >
-                  Add to Cart
+                  <ShoppingCartIcon className="h-5 w-5" />
+                  {product.stock > 0 ? "Add to Cart" : "Out of Stock"}
                 </button>
               </div>
             </div>
