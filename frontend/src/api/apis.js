@@ -70,13 +70,13 @@ export const productAPI = {
 export const orderAPI = {
   // Customer routes
   createOrder: (orderData) => api.post("/orders", orderData),
-  getMyOrders: () => api.get("/orders/my-orders"),
+  getUserOrders: () => api.get("/orders"),
 
   // Admin routes
-  getAllOrders: () => api.get("/orders"),
-  getOrder: (id) => api.get(`/orders/${id}`),
-  updateOrder: (id, orderData) => api.put(`/orders/${id}`, orderData),
-  deleteOrder: (id) => api.delete(`/orders/${id}`),
+  getAllOrders: () => api.get("/orders/admin"),
+  getOrderDetails: (id) => api.get(`/orders/admin/${id}`),
+  updateOrder: (id, orderData) => api.put(`/orders/admin/${id}`, orderData),
+  deleteOrder: (id) => api.delete(`/orders/admin/${id}`),
 };
 
 // Profile APIs
@@ -104,6 +104,23 @@ export const adminAPI = {
         "Content-Type": "multipart/form-data",
       },
     }),
+};
+
+// Add these to your existing apis.js file
+export const wishlistAPI = {
+  getWishlist: () => api.get("/wishlist"),
+  addToWishlist: (productId) => api.post("/wishlist", { productId }),
+  removeFromWishlist: (productId) => api.delete(`/wishlist/${productId}`),
+};
+
+// Add these to your existing apis.js file
+export const cartAPI = {
+  getCart: () => api.get("/cart"),
+  addToCart: (productId, quantity = 1) =>
+    api.post("/cart", { productId, quantity }),
+  updateCartItem: (productId, quantity) =>
+    api.put(`/cart/${productId}`, { quantity }),
+  removeFromCart: (productId) => api.delete(`/cart/${productId}`),
 };
 
 // Error handler helper

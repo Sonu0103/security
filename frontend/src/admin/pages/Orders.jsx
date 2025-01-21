@@ -14,6 +14,7 @@ function Orders() {
   const [dateRange, setDateRange] = useState({ from: "", to: "" });
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isUpdating, setIsUpdating] = useState(false);
 
   const orderStatuses = [
     "pending",
@@ -39,14 +40,17 @@ function Orders() {
     }
   };
 
-  const updateOrderStatus = async (orderId, newStatus) => {
+  const handleStatusUpdate = async (orderId, newStatus) => {
     try {
+      setIsUpdating(true);
       await orderAPI.updateOrder(orderId, { status: newStatus });
       toast.success("Order status updated successfully");
-      fetchOrders();
+      fetchOrders(); // Refresh orders list
     } catch (error) {
       const { message } = handleApiError(error);
       toast.error(message);
+    } finally {
+      setIsUpdating(false);
     }
   };
 
@@ -66,6 +70,25 @@ function Orders() {
 
     return matchesSearch && matchesStatus && matchesDateRange;
   });
+
+  const formatDate = (dateString) => {
+    return new Date(dateString).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+  };
+
+  // Helper function to get full image URL
+  const getFullImageUrl = (imagePath) => {
+    if (!imagePath) return "/default-product.jpg";
+    if (imagePath.startsWith("http")) return imagePath;
+    return `${import.meta.env.VITE_BACKEND_URL}${imagePath}`;
+  };
+
+  if (isLoading) {
+    return <div>Loading...</div>;
+  }
 
   return (
     <div className="space-y-6">
@@ -153,9 +176,7 @@ function Orders() {
                       </p>
                     </div>
                   </td>
-                  <td className="px-6 py-4">
-                    {new Date(order.createdAt).toLocaleDateString()}
-                  </td>
+                  <td className="px-6 py-4">{formatDate(order.createdAt)}</td>
                   <td className="px-6 py-4">${order.totalAmount.toFixed(2)}</td>
                   <td className="px-6 py-4">
                     <span
@@ -172,8 +193,9 @@ function Orders() {
                     <select
                       value={order.status}
                       onChange={(e) =>
-                        updateOrderStatus(order._id, e.target.value)
+                        handleStatusUpdate(order._id, e.target.value)
                       }
+                      disabled={isUpdating || order.status === "delivered"}
                       className={`px-2 py-1 rounded border ${
                         order.status === "delivered"
                           ? "bg-green-50 border-green-200"
@@ -210,9 +232,10 @@ function Orders() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg max-w-3xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6">
+              {/* Modal Header */}
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-bold text-neutral-darkGray">
-                  Order Details - {selectedOrder._id}
+                  Order Details
                 </h2>
                 <button
                   onClick={() => setSelectedOrder(null)}
@@ -222,68 +245,49 @@ function Orders() {
                 </button>
               </div>
 
-              <div className="space-y-8">
-                {/* Customer Information */}
+              {/* Order Info */}
+              <div className="space-y-6">
+                {/* Order ID and Date */}
+                <div className="grid grid-cols-2 gap-4 bg-gray-50 p-4 rounded-lg">
+                  <div>
+                    <p className="text-gray-600">Order ID</p>
+                    <p className="font-medium">{selectedOrder._id}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-600">Order Date</p>
+                    <p className="font-medium">
+                      {formatDate(selectedOrder.createdAt)}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Customer Info */}
                 <div className="bg-gray-50 p-4 rounded-lg">
                   <h3 className="font-semibold mb-4">Customer Information</h3>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <p className="text-gray-600">Name</p>
-                      <p className="font-medium">{selectedOrder.user.name}</p>
+                      <p className="font-medium">{selectedOrder.user?.name}</p>
                     </div>
                     <div>
                       <p className="text-gray-600">Email</p>
-                      <p className="font-medium">{selectedOrder.user.email}</p>
+                      <p className="font-medium">{selectedOrder.user?.email}</p>
                     </div>
                   </div>
                 </div>
 
-                {/* Order Status */}
+                {/* Shipping Address */}
                 <div className="bg-gray-50 p-4 rounded-lg">
-                  <h3 className="font-semibold mb-4">Order Status</h3>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-gray-600">Order Date</p>
-                      <p className="font-medium">
-                        {new Date(selectedOrder.createdAt).toLocaleDateString()}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-gray-600">Status</p>
-                      <select
-                        value={selectedOrder.status}
-                        onChange={(e) =>
-                          updateOrderStatus(selectedOrder._id, e.target.value)
-                        }
-                        className={`mt-1 px-2 py-1 rounded border ${
-                          selectedOrder.status === "delivered"
-                            ? "bg-green-50 border-green-200"
-                            : selectedOrder.status === "cancelled"
-                            ? "bg-red-50 border-red-200"
-                            : "bg-yellow-50 border-yellow-200"
-                        }`}
-                      >
-                        {orderStatuses.map((status) => (
-                          <option key={status} value={status}>
-                            {status}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <p className="text-gray-600">Payment Status</p>
-                      <span
-                        className={`inline-block px-2 py-1 text-sm rounded-full ${
-                          selectedOrder.paymentStatus === "paid"
-                            ? "bg-green-100 text-green-800"
-                            : "bg-yellow-100 text-yellow-800"
-                        }`}
-                      >
-                        {selectedOrder.paymentStatus === "paid"
-                          ? "Paid"
-                          : "Pending"}
-                      </span>
-                    </div>
+                  <h3 className="font-semibold mb-4">Shipping Address</h3>
+                  <div className="space-y-2">
+                    <p>{selectedOrder.shippingAddress.fullName}</p>
+                    <p>{selectedOrder.shippingAddress.address}</p>
+                    <p>
+                      {selectedOrder.shippingAddress.city},{" "}
+                      {selectedOrder.shippingAddress.state}{" "}
+                      {selectedOrder.shippingAddress.zipCode}
+                    </p>
+                    <p>Phone: {selectedOrder.shippingAddress.phone}</p>
                   </div>
                 </div>
 
@@ -293,24 +297,19 @@ function Orders() {
                   <div className="space-y-4">
                     {selectedOrder.items.map((item) => (
                       <div
-                        key={item.product}
-                        className="flex items-center justify-between border-b border-gray-200 pb-4 last:border-0 last:pb-0"
+                        key={item._id}
+                        className="flex items-center gap-4 border-b pb-4 last:border-0 last:pb-0"
                       >
-                        <div className="flex items-center gap-4">
-                          <img
-                            src={item.image}
-                            alt={item.name}
-                            className="w-16 h-16 object-cover rounded"
-                          />
-                          <div>
-                            <p className="font-medium">{item.name}</p>
-                            <p className="text-sm text-gray-500">
-                              Quantity: {item.quantity}
-                            </p>
-                            <p className="text-sm text-gray-500">
-                              Price: ${item.price.toFixed(2)}
-                            </p>
-                          </div>
+                        <img
+                          src={getFullImageUrl(item.product?.image)}
+                          alt={item.product?.name}
+                          className="w-16 h-16 object-cover rounded"
+                        />
+                        <div className="flex-grow">
+                          <h4 className="font-medium">{item.product?.name}</h4>
+                          <p className="text-sm text-gray-600">
+                            Quantity: {item.quantity} × ${item.price}
+                          </p>
                         </div>
                         <p className="font-medium">
                           ${(item.price * item.quantity).toFixed(2)}
@@ -325,27 +324,51 @@ function Orders() {
                   <h3 className="font-semibold mb-4">Order Summary</h3>
                   <div className="space-y-2">
                     <div className="flex justify-between">
-                      <p className="text-gray-600">Subtotal</p>
-                      <p className="font-medium">
+                      <span>Subtotal</span>
+                      <span>
                         $
-                        {selectedOrder.items
-                          .reduce(
-                            (sum, item) => sum + item.price * item.quantity,
-                            0
-                          )
-                          .toFixed(2)}
-                      </p>
+                        {(
+                          selectedOrder.totalAmount - selectedOrder.shippingFee
+                        ).toFixed(2)}
+                      </span>
                     </div>
                     <div className="flex justify-between">
-                      <p className="text-gray-600">Shipping</p>
-                      <p className="font-medium">$10.00</p>
+                      <span>Shipping</span>
+                      <span>${selectedOrder.shippingFee.toFixed(2)}</span>
                     </div>
-                    <div className="flex justify-between border-t border-gray-200 pt-2 mt-2">
-                      <p className="font-semibold">Total</p>
-                      <p className="font-bold text-lg">
-                        ${selectedOrder.totalAmount.toFixed(2)}
-                      </p>
+                    <div className="flex justify-between font-bold pt-2 border-t">
+                      <span>Total</span>
+                      <span>${selectedOrder.totalAmount.toFixed(2)}</span>
                     </div>
+                  </div>
+                </div>
+
+                {/* Order Status */}
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <h3 className="font-semibold mb-4">Order Status</h3>
+                  <div className="flex items-center gap-4">
+                    <select
+                      value={selectedOrder.status}
+                      onChange={(e) =>
+                        handleStatusUpdate(selectedOrder._id, e.target.value)
+                      }
+                      disabled={
+                        isUpdating || selectedOrder.status === "delivered"
+                      }
+                      className={`px-3 py-2 rounded border ${
+                        selectedOrder.status === "delivered"
+                          ? "bg-green-50 border-green-200"
+                          : selectedOrder.status === "cancelled"
+                          ? "bg-red-50 border-red-200"
+                          : "bg-yellow-50 border-yellow-200"
+                      }`}
+                    >
+                      {orderStatuses.map((status) => (
+                        <option key={status} value={status}>
+                          {status.charAt(0).toUpperCase() + status.slice(1)}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                 </div>
               </div>
