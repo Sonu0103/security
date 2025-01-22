@@ -258,6 +258,43 @@ exports.getProduct = async (req, res, next) => {
   }
 };
 
+// @desc    Search products
+// @route   GET /api/products/search
+// @access  Public
+exports.searchProducts = async (req, res, next) => {
+  try {
+    const { query } = req.query;
+
+    if (!query) {
+      return next(new ErrorHandler("Please provide a search query", 400));
+    }
+
+    const searchRegex = new RegExp(query, "i");
+
+    const products = await Product.find({
+      $or: [
+        { name: searchRegex },
+        { description: searchRegex },
+        { category: searchRegex },
+      ],
+    });
+
+    // Add full URL to image paths
+    const productsWithFullUrls = products.map((product) => ({
+      ...product.toObject(),
+      image: getFullImageUrl(product.image),
+    }));
+
+    res.status(200).json({
+      success: true,
+      count: products.length,
+      products: productsWithFullUrls,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 // Helper function to get full image URL
 const getFullImageUrl = (imagePath) => {
   try {

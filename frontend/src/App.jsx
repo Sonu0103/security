@@ -15,6 +15,7 @@ import OrderSuccess from "./pages/OrderSuccess";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import Profile from "./pages/Profile";
+import SearchResults from "./pages/SearchResults";
 import { FavoritesProvider } from "./context/FavoritesContext";
 import { Toaster } from "react-hot-toast";
 import { CartProvider } from "./context/CartContext";
@@ -93,6 +94,7 @@ function App() {
                   <main className="flex-grow">
                     <Routes>
                       <Route path="/" element={<Home />} />
+                      <Route path="/search" element={<SearchResults />} />
                       <Route
                         path="/products/category/:category"
                         element={<ProductDetails />}

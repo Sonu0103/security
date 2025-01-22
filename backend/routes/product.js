@@ -9,9 +9,11 @@ const {
   getProductsByCategory,
   getFeaturedProducts,
   getProduct,
+  searchProducts,
 } = require("../controllers/productController");
 
 // Public routes
+router.get("/search", searchProducts);
 router.get("/", getProducts);
 router.get("/featured", getFeaturedProducts);
 router.get("/category/:category", getProductsByCategory);

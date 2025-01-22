@@ -62,28 +62,42 @@ exports.updateOrder = async (req, res, next) => {
       return next(new ErrorHandler("Order not found", 404));
     }
 
-    if (order.status === "delivered") {
-      return next(new ErrorHandler("You cannot update a delivered order", 400));
-    }
-
     // Update order status
-    order.status = req.body.status;
+    if (req.body.status) {
+      order.status = req.body.status;
 
-    // If order is marked as delivered, update payment status to completed
-    if (req.body.status === "delivered") {
-      order.paymentStatus = "completed";
+      // If order is marked as delivered
+      if (req.body.status === "delivered") {
+        order.isDelivered = true;
+        order.deliveredAt = Date.now();
+      }
     }
 
-    // Add tracking info if provided
-    if (req.body.trackingInfo) {
-      order.trackingInfo = req.body.trackingInfo;
+    // Update payment status
+    if (req.body.isPaid !== undefined) {
+      order.isPaid = req.body.isPaid;
+      if (req.body.isPaid) {
+        order.paidAt = Date.now();
+        // Update payment result if payment is marked as paid
+        order.paymentResult = {
+          status: "Success",
+          transactionId: `MANUAL-${Date.now()}`,
+          amount: order.totalAmount,
+          referenceId: `ADMIN-${Date.now()}`,
+        };
+      }
     }
 
     await order.save();
 
+    // Populate user and product details before sending response
+    const updatedOrder = await Order.findById(order._id)
+      .populate("user", "name email")
+      .populate("items.product", "name price image");
+
     res.status(200).json({
       success: true,
-      order,
+      order: updatedOrder,
     });
   } catch (error) {
     next(error);
@@ -333,6 +347,30 @@ exports.getUserOrders = async (req, res, next) => {
     res.status(200).json({
       success: true,
       orders,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Get recent deliveries
+// @route   GET /api/orders/admin/recent-deliveries
+// @access  Private/Admin
+exports.getRecentDeliveries = async (req, res, next) => {
+  try {
+    const recentDeliveries = await Order.find({
+      isDelivered: true,
+      status: "delivered",
+    })
+      .populate("user", "name email")
+      .populate("items.product", "name price image")
+      .sort("-deliveredAt")
+      .limit(10); // Get last 10 deliveries
+
+    res.status(200).json({
+      success: true,
+      count: recentDeliveries.length,
+      recentDeliveries,
     });
   } catch (error) {
     next(error);

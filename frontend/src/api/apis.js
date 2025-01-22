@@ -77,6 +77,7 @@ export const orderAPI = {
   getOrderDetails: (id) => api.get(`/orders/admin/${id}`),
   updateOrder: (id, orderData) => api.put(`/orders/admin/${id}`, orderData),
   deleteOrder: (id) => api.delete(`/orders/admin/${id}`),
+  getRecentDeliveries: () => api.get("/orders/admin/recent-deliveries"),
 };
 
 // Profile APIs

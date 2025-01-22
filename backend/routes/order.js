@@ -10,6 +10,7 @@ const {
   deleteOrder,
   handleEsewaSuccess,
   handleEsewaFailure,
+  getRecentDeliveries,
 } = require("../controllers/orderController");
 
 // Public routes for eSewa callbacks
@@ -22,6 +23,7 @@ router.route("/").post(createOrder).get(getUserOrders);
 
 // Admin routes
 router.route("/admin").get(authorize("admin"), getAllOrders);
+router.get("/admin/recent-deliveries", authorize("admin"), getRecentDeliveries);
 
 router
   .route("/admin/:id")

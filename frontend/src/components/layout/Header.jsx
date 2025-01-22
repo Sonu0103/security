@@ -12,6 +12,7 @@ import { useFavorites } from "../../context/FavoritesContext";
 import { useCart } from "../../context/CartContext";
 import toast from "react-hot-toast";
 import { checkAuth } from "../../utils/auth";
+import HeaderSearch from "./HeaderSearch";
 
 function Header() {
   const navigate = useNavigate();
@@ -117,26 +118,27 @@ function Header() {
             />
           </button>
 
-          {/* Navigation Links */}
+          {/* Navigation Links and Search */}
           <nav className="hidden md:flex items-center space-x-8">
             <button
               onClick={() => handleNavigation("#hero")}
-              className="text-neutral-darkGray hover:text-primary-blue font-medium transition-colors"
+              className="text-neutral-darkGray hover:text-primary-blue font-medium transition-colors whitespace-nowrap"
             >
               Home
             </button>
             <button
               onClick={() => handleNavigation("#categories")}
-              className="text-neutral-darkGray hover:text-primary-blue font-medium transition-colors"
+              className="text-neutral-darkGray hover:text-primary-blue font-medium transition-colors whitespace-nowrap"
             >
               Shop
             </button>
             <button
               onClick={() => handleNavigation("#footer")}
-              className="text-neutral-darkGray hover:text-primary-blue font-medium transition-colors"
+              className="text-neutral-darkGray hover:text-primary-blue font-medium transition-colors whitespace-nowrap"
             >
               About Us
             </button>
+            <HeaderSearch />
           </nav>
 
           {/* Auth/Profile Section */}

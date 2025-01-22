@@ -3,12 +3,14 @@ import {
   MagnifyingGlassIcon,
   EyeIcon,
   XMarkIcon,
+  CheckCircleIcon,
 } from "@heroicons/react/24/outline";
 import { orderAPI, handleApiError } from "../../api/apis";
 import toast from "react-hot-toast";
 
 function Orders() {
   const [orders, setOrders] = useState([]);
+  const [recentDeliveries, setRecentDeliveries] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [dateRange, setDateRange] = useState({ from: "", to: "" });
@@ -26,6 +28,7 @@ function Orders() {
 
   useEffect(() => {
     fetchOrders();
+    fetchRecentDeliveries();
   }, []);
 
   const fetchOrders = async () => {
@@ -40,12 +43,22 @@ function Orders() {
     }
   };
 
-  const handleStatusUpdate = async (orderId, newStatus) => {
+  const fetchRecentDeliveries = async () => {
+    try {
+      const { data } = await orderAPI.getRecentDeliveries();
+      setRecentDeliveries(data.recentDeliveries);
+    } catch (error) {
+      console.error("Error fetching recent deliveries:", error);
+    }
+  };
+
+  const handleStatusUpdate = async (orderId, updates) => {
     try {
       setIsUpdating(true);
-      await orderAPI.updateOrder(orderId, { status: newStatus });
-      toast.success("Order status updated successfully");
-      fetchOrders(); // Refresh orders list
+      await orderAPI.updateOrder(orderId, updates);
+      toast.success("Order updated successfully");
+      fetchOrders();
+      fetchRecentDeliveries();
     } catch (error) {
       const { message } = handleApiError(error);
       toast.error(message);
@@ -92,8 +105,39 @@ function Orders() {
 
   return (
     <div className="space-y-6">
-      {/* Feedback Message */}
-      {/* Feedback Message */}
+      {/* Recent Deliveries Section */}
+      <div className="bg-white rounded-lg shadow-md p-6">
+        <h2 className="text-xl font-semibold mb-4">Recent Deliveries</h2>
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="bg-gray-50 text-left">
+                <th className="px-4 py-2">Order ID</th>
+                <th className="px-4 py-2">Customer</th>
+                <th className="px-4 py-2">Delivered At</th>
+                <th className="px-4 py-2">Total</th>
+                <th className="px-4 py-2">Payment Method</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {recentDeliveries.map((order) => (
+                <tr key={order._id}>
+                  <td className="px-4 py-2 font-medium">{order._id}</td>
+                  <td className="px-4 py-2">{order.user.name}</td>
+                  <td className="px-4 py-2">{formatDate(order.deliveredAt)}</td>
+                  <td className="px-4 py-2">${order.totalAmount.toFixed(2)}</td>
+                  <td className="px-4 py-2 capitalize">
+                    {order.paymentMethod === "esewa"
+                      ? "eSewa"
+                      : "Cash on Delivery"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       {/* Search and Filters */}
       <div className="bg-white rounded-lg shadow-md p-6">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -159,8 +203,9 @@ function Orders() {
                 <th className="px-6 py-3">Customer</th>
                 <th className="px-6 py-3">Date</th>
                 <th className="px-6 py-3">Total</th>
+                <th className="px-6 py-3">Payment Method</th>
                 <th className="px-6 py-3">Payment Status</th>
-                <th className="px-6 py-3">Status</th>
+                <th className="px-6 py-3">Order Status</th>
                 <th className="px-6 py-3">Actions</th>
               </tr>
             </thead>
@@ -178,22 +223,42 @@ function Orders() {
                   </td>
                   <td className="px-6 py-4">{formatDate(order.createdAt)}</td>
                   <td className="px-6 py-4">${order.totalAmount.toFixed(2)}</td>
+                  <td className="px-6 py-4 capitalize">
+                    {order.paymentMethod === "esewa"
+                      ? "eSewa"
+                      : "Cash on Delivery"}
+                  </td>
                   <td className="px-6 py-4">
-                    <span
-                      className={`inline-block px-2 py-1 text-sm rounded-full ${
-                        order.paymentStatus === "paid"
-                          ? "bg-green-100 text-green-800"
-                          : "bg-yellow-100 text-yellow-800"
-                      }`}
-                    >
-                      {order.paymentStatus === "paid" ? "Paid" : "Pending"}
-                    </span>
+                    <div className="flex items-center space-x-2">
+                      <span
+                        className={`inline-block px-2 py-1 text-sm rounded-full ${
+                          order.isPaid
+                            ? "bg-green-100 text-green-800"
+                            : "bg-yellow-100 text-yellow-800"
+                        }`}
+                      >
+                        {order.isPaid ? "Paid" : "Pending"}
+                      </span>
+                      {!order.isPaid && order.paymentMethod === "cash" && (
+                        <button
+                          onClick={() =>
+                            handleStatusUpdate(order._id, { isPaid: true })
+                          }
+                          className="text-green-600 hover:text-green-700"
+                          title="Mark as Paid"
+                        >
+                          <CheckCircleIcon className="h-5 w-5" />
+                        </button>
+                      )}
+                    </div>
                   </td>
                   <td className="px-6 py-4">
                     <select
                       value={order.status}
                       onChange={(e) =>
-                        handleStatusUpdate(order._id, e.target.value)
+                        handleStatusUpdate(order._id, {
+                          status: e.target.value,
+                        })
                       }
                       disabled={isUpdating || order.status === "delivered"}
                       className={`px-2 py-1 rounded border ${
@@ -232,7 +297,6 @@ function Orders() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg max-w-3xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6">
-              {/* Modal Header */}
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-bold text-neutral-darkGray">
                   Order Details
@@ -245,19 +309,54 @@ function Orders() {
                 </button>
               </div>
 
-              {/* Order Info */}
               <div className="space-y-6">
-                {/* Order ID and Date */}
-                <div className="grid grid-cols-2 gap-4 bg-gray-50 p-4 rounded-lg">
+                {/* Order Info */}
+                <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <p className="text-gray-600">Order ID</p>
+                    <p className="text-sm text-gray-500">Order ID</p>
                     <p className="font-medium">{selectedOrder._id}</p>
                   </div>
                   <div>
-                    <p className="text-gray-600">Order Date</p>
+                    <p className="text-sm text-gray-500">Order Date</p>
                     <p className="font-medium">
                       {formatDate(selectedOrder.createdAt)}
                     </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500">Payment Method</p>
+                    <p className="font-medium capitalize">
+                      {selectedOrder.paymentMethod === "esewa"
+                        ? "eSewa"
+                        : "Cash on Delivery"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500">Payment Status</p>
+                    <div className="flex items-center space-x-2">
+                      <span
+                        className={`inline-block px-2 py-1 text-sm rounded-full ${
+                          selectedOrder.isPaid
+                            ? "bg-green-100 text-green-800"
+                            : "bg-yellow-100 text-yellow-800"
+                        }`}
+                      >
+                        {selectedOrder.isPaid ? "Paid" : "Pending"}
+                      </span>
+                      {!selectedOrder.isPaid &&
+                        selectedOrder.paymentMethod === "cash" && (
+                          <button
+                            onClick={() =>
+                              handleStatusUpdate(selectedOrder._id, {
+                                isPaid: true,
+                              })
+                            }
+                            className="text-green-600 hover:text-green-700"
+                            title="Mark as Paid"
+                          >
+                            <CheckCircleIcon className="h-5 w-5" />
+                          </button>
+                        )}
+                    </div>
                   </div>
                 </div>
 
@@ -350,7 +449,9 @@ function Orders() {
                     <select
                       value={selectedOrder.status}
                       onChange={(e) =>
-                        handleStatusUpdate(selectedOrder._id, e.target.value)
+                        handleStatusUpdate(selectedOrder._id, {
+                          status: e.target.value,
+                        })
                       }
                       disabled={
                         isUpdating || selectedOrder.status === "delivered"
