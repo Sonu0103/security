@@ -1,14 +1,18 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { PencilIcon } from "@heroicons/react/24/outline";
-import { profileAPI, handleApiError } from "../api/apis";
+import { profileAPI, orderAPI, wishlistAPI, handleApiError } from "../api/apis";
 import toast from "react-hot-toast";
 
 function Profile() {
   const navigate = useNavigate();
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [ordersLoading, setOrdersLoading] = useState(true);
+  const [wishlistLoading, setWishlistLoading] = useState(true);
   const [user, setUser] = useState(null);
+  const [orders, setOrders] = useState([]);
+  const [wishlist, setWishlist] = useState([]);
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -20,6 +24,8 @@ function Profile() {
 
   useEffect(() => {
     fetchProfile();
+    fetchOrders();
+    fetchWishlist();
   }, []);
 
   const fetchProfile = async () => {
@@ -39,6 +45,60 @@ function Profile() {
       toast.error(message);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const fetchOrders = async () => {
+    try {
+      const { data } = await orderAPI.getUserOrders();
+      console.log("Orders response:", data);
+      if (data.orders && data.orders.length > 0) {
+        console.log("First order items:", data.orders[0].items);
+        console.log(
+          "First item image path:",
+          data.orders[0].items[0]?.product?.image
+        );
+      }
+      if (!data.orders) {
+        console.error("No orders array in response:", data);
+        setOrders([]);
+        return;
+      }
+      setOrders(data.orders);
+    } catch (error) {
+      console.error("Error fetching orders:", error.response || error);
+      const { message } = handleApiError(error);
+      toast.error("Failed to fetch orders: " + message);
+      setOrders([]);
+    } finally {
+      setOrdersLoading(false);
+    }
+  };
+
+  const fetchWishlist = async () => {
+    try {
+      const { data } = await wishlistAPI.getWishlist();
+      console.log("Wishlist response:", data);
+      if (data.wishlistItems && data.wishlistItems.length > 0) {
+        console.log("First wishlist item:", data.wishlistItems[0]);
+        console.log(
+          "First wishlist item image path:",
+          data.wishlistItems[0]?.product?.image
+        );
+      }
+      if (!data.wishlistItems) {
+        console.error("No wishlist items array in response:", data);
+        setWishlist([]);
+        return;
+      }
+      setWishlist(data.wishlistItems);
+    } catch (error) {
+      console.error("Error fetching wishlist:", error.response || error);
+      const { message } = handleApiError(error);
+      toast.error("Failed to fetch wishlist: " + message);
+      setWishlist([]);
+    } finally {
+      setWishlistLoading(false);
     }
   };
 
@@ -101,33 +161,6 @@ function Profile() {
       toast.error(message);
     }
   };
-
-  // Mock order history data
-  const orders = [
-    {
-      id: "ORD-123",
-      date: "2024-03-15",
-      status: "Delivered",
-      total: 229.98,
-      items: [
-        {
-          id: "bats",
-          name: "Premium Cricket Bat",
-          price: 199.99,
-          quantity: 1,
-          image: "/images/hero1.jpg",
-        },
-        {
-          id: "balls",
-          name: "Professional Cricket Ball",
-          price: 29.99,
-          quantity: 1,
-          image: "/images/hero2.jpg",
-        },
-      ],
-    },
-    // Add more orders as needed
-  ];
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -263,47 +296,78 @@ function Profile() {
               Order History
             </h2>
             <div className="space-y-6">
-              {orders.map((order) => (
-                <div key={order.id} className="border rounded-lg p-4 space-y-4">
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <p className="font-semibold text-neutral-darkGray">
-                        Order #{order.id}
-                      </p>
-                      <p className="text-sm text-gray-600">
-                        {new Date(order.date).toLocaleDateString()}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-semibold text-primary-green">
-                        ${order.total.toFixed(2)}
-                      </p>
-                      <span className="inline-block px-3 py-1 text-sm rounded-full bg-green-100 text-green-800">
-                        {order.status}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {order.items.map((item) => (
-                      <div key={item.id} className="flex items-center gap-4">
-                        <img
-                          src={item.image}
-                          alt={item.name}
-                          className="w-16 h-16 object-cover rounded"
-                        />
-                        <div>
-                          <p className="font-medium text-neutral-darkGray">
-                            {item.name}
-                          </p>
-                          <p className="text-sm text-gray-600">
-                            Qty: {item.quantity} × ${item.price}
-                          </p>
-                        </div>
+              {ordersLoading ? (
+                <p className="text-gray-500 text-center">Loading orders...</p>
+              ) : orders.length === 0 ? (
+                <p className="text-gray-500 text-center">No orders found</p>
+              ) : (
+                orders.map((order) => (
+                  <div
+                    key={order._id}
+                    className="border rounded-lg p-4 space-y-4"
+                  >
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <p className="font-semibold text-neutral-darkGray">
+                          Order #{order._id}
+                        </p>
+                        <p className="text-sm text-gray-600">
+                          {new Date(order.createdAt).toLocaleDateString()}
+                        </p>
                       </div>
-                    ))}
+                      <div className="text-right">
+                        <p className="font-semibold text-primary-green">
+                          ${order.totalAmount.toFixed(2)}
+                        </p>
+                        <span
+                          className={`inline-block px-3 py-1 text-sm rounded-full ${
+                            order.status === "delivered"
+                              ? "bg-green-100 text-green-800"
+                              : order.status === "cancelled"
+                              ? "bg-red-100 text-red-800"
+                              : "bg-blue-100 text-blue-800"
+                          }`}
+                        >
+                          {order.status.charAt(0).toUpperCase() +
+                            order.status.slice(1)}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {order.items.map((item) => (
+                        <div key={item._id} className="flex items-center gap-4">
+                          <img
+                            src={
+                              item.product.image.startsWith("http")
+                                ? item.product.image
+                                : `${import.meta.env.VITE_BACKEND_URL}${
+                                    item.product.image
+                                  }`
+                            }
+                            alt={item.product.name}
+                            className="w-16 h-16 object-cover rounded"
+                            onError={(e) => {
+                              console.error(
+                                "Error loading image:",
+                                e.target.src
+                              );
+                              e.target.src = "/placeholder-image.jpg"; // Add a placeholder image
+                            }}
+                          />
+                          <div>
+                            <p className="font-medium text-neutral-darkGray">
+                              {item.product.name}
+                            </p>
+                            <p className="text-sm text-gray-600">
+                              Qty: {item.quantity} × ${item.price}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           </div>
         </div>
@@ -323,28 +387,45 @@ function Profile() {
               </button>
             </div>
             <div className="space-y-4">
-              {/* Show last 3 wishlist items */}
-              {[1, 2, 3].map((item) => (
-                <div
-                  key={item}
-                  className="flex items-center gap-4 p-2 hover:bg-gray-50 rounded-lg cursor-pointer"
-                  onClick={() => navigate(`/product/item-${item}`)}
-                >
-                  <img
-                    src={`/images/hero${item}.jpg`}
-                    alt={`Wishlist item ${item}`}
-                    className="w-16 h-16 object-cover rounded"
-                  />
-                  <div>
-                    <p className="font-medium text-neutral-darkGray">
-                      Cricket Item {item}
-                    </p>
-                    <p className="text-primary-green font-semibold">
-                      ${(99.99 * item).toFixed(2)}
-                    </p>
+              {wishlistLoading ? (
+                <p className="text-gray-500 text-center">Loading wishlist...</p>
+              ) : wishlist.length === 0 ? (
+                <p className="text-gray-500 text-center">
+                  No items in wishlist
+                </p>
+              ) : (
+                wishlist.slice(0, 3).map((item) => (
+                  <div
+                    key={item._id}
+                    className="flex items-center gap-4 p-2 hover:bg-gray-50 rounded-lg cursor-pointer"
+                    onClick={() => navigate(`/product/${item.product._id}`)}
+                  >
+                    <img
+                      src={
+                        item.product.image.startsWith("http")
+                          ? item.product.image
+                          : `${import.meta.env.VITE_BACKEND_URL}${
+                              item.product.image
+                            }`
+                      }
+                      alt={item.product.name}
+                      className="w-16 h-16 object-cover rounded"
+                      onError={(e) => {
+                        console.error("Error loading image:", e.target.src);
+                        e.target.src = "/placeholder-image.jpg"; // Add a placeholder image
+                      }}
+                    />
+                    <div>
+                      <p className="font-medium text-neutral-darkGray">
+                        {item.product.name}
+                      </p>
+                      <p className="text-primary-green font-semibold">
+                        ${item.product.price.toFixed(2)}
+                      </p>
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           </div>
         </div>
