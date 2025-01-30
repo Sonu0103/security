@@ -1,6 +1,7 @@
 const Order = require("../models/Order");
 const Cart = require("../models/Cart");
 const ErrorHandler = require("../utils/errorHandler");
+const Product = require("../models/Product");
 
 // @desc    Get all orders (admin)
 // @route   GET /api/orders/admin
@@ -158,6 +159,18 @@ exports.createOrder = async (req, res, next) => {
       return next(new ErrorHandler("Cart is empty", 400));
     }
 
+    // Check stock availability for all items
+    for (const item of cart.items) {
+      if (item.product.stock < item.quantity) {
+        return next(
+          new ErrorHandler(
+            `Only ${item.product.stock} items available for ${item.product.name}`,
+            400
+          )
+        );
+      }
+    }
+
     // Calculate totals
     const subtotal = cart.items.reduce(
       (sum, item) => sum + item.product.price * item.quantity,
@@ -186,8 +199,15 @@ exports.createOrder = async (req, res, next) => {
       paidAt: paymentMethod === "cash" ? Date.now() : null,
     });
 
-    // If payment method is cash, create order directly and clear cart
+    // If payment method is cash, update stock and clear cart immediately
     if (paymentMethod === "cash") {
+      // Update product stock
+      for (const item of cart.items) {
+        await Product.findByIdAndUpdate(item.product._id, {
+          $inc: { stock: -item.quantity },
+        });
+      }
+
       // Clear the cart
       await Cart.findOneAndUpdate(
         { user: req.user._id },
@@ -257,6 +277,13 @@ exports.handleEsewaSuccess = async (req, res, next) => {
 
     await order.save();
     console.log("Order updated successfully:", order._id);
+
+    // Update product stock for each item in the order
+    for (const item of order.items) {
+      await Product.findByIdAndUpdate(item.product, {
+        $inc: { stock: -item.quantity },
+      });
+    }
 
     // Clear the cart after successful payment
     await Cart.findOneAndUpdate(

@@ -262,6 +262,69 @@ function Profile() {
                           onChange={handleInputChange}
                           className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-blue/50"
                         />
+                        <div className="mt-2 text-sm text-gray-600">
+                          <p className="font-medium mb-1">
+                            Password must contain:
+                          </p>
+                          <ul className="list-disc pl-5 space-y-1">
+                            <li
+                              className={
+                                formData.newPassword.length >= 8
+                                  ? "text-green-500"
+                                  : "text-gray-500"
+                              }
+                            >
+                              At least 8 characters
+                            </li>
+                            <li
+                              className={
+                                /[A-Z]/.test(formData.newPassword)
+                                  ? "text-green-500"
+                                  : "text-gray-500"
+                              }
+                            >
+                              One uppercase letter
+                            </li>
+                            <li
+                              className={
+                                /[a-z]/.test(formData.newPassword)
+                                  ? "text-green-500"
+                                  : "text-gray-500"
+                              }
+                            >
+                              One lowercase letter
+                            </li>
+                            <li
+                              className={
+                                /[0-9]/.test(formData.newPassword)
+                                  ? "text-green-500"
+                                  : "text-gray-500"
+                              }
+                            >
+                              One number
+                            </li>
+                            <li
+                              className={
+                                /[!@#$%^&*(),.?":{}|<>]/.test(
+                                  formData.newPassword
+                                )
+                                  ? "text-green-500"
+                                  : "text-gray-500"
+                              }
+                            >
+                              One special character
+                            </li>
+                            <li
+                              className={
+                                !/\s/.test(formData.newPassword)
+                                  ? "text-green-500"
+                                  : "text-red-500"
+                              }
+                            >
+                              No spaces allowed
+                            </li>
+                          </ul>
+                        </div>
                       </div>
                       <div>
                         <label className="block text-gray-700 mb-2">
@@ -274,6 +337,19 @@ function Profile() {
                           onChange={handleInputChange}
                           className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-blue/50"
                         />
+                        {formData.newPassword && formData.confirmPassword && (
+                          <p
+                            className={`mt-1 text-sm ${
+                              formData.newPassword === formData.confirmPassword
+                                ? "text-green-500"
+                                : "text-red-500"
+                            }`}
+                          >
+                            {formData.newPassword === formData.confirmPassword
+                              ? "Passwords match"
+                              : "Passwords do not match"}
+                          </p>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -288,6 +364,179 @@ function Profile() {
                 </>
               )}
             </form>
+          </div>
+
+          {/* Security Information */}
+          <div className="bg-white rounded-lg shadow-md p-6 mt-8">
+            <h2 className="text-xl font-bold text-neutral-darkGray mb-6">
+              Security Information
+            </h2>
+
+            {/* Password Status */}
+            <div className="space-y-6">
+              <div>
+                <h3 className="text-lg font-semibold text-neutral-darkGray mb-2">
+                  Password Status
+                </h3>
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-gray-700">Password Expiry:</span>
+                    <span
+                      className={`font-medium ${
+                        new Date(user.passwordExpiresAt) <= new Date()
+                          ? "text-red-500"
+                          : "text-green-500"
+                      }`}
+                    >
+                      {(() => {
+                        try {
+                          const today = new Date();
+                          const expiryDate = new Date(user.passwordExpiresAt);
+
+                          // Calculate days remaining
+                          const timeDiff =
+                            expiryDate.getTime() - today.getTime();
+                          const daysRemaining = Math.ceil(
+                            timeDiff / (1000 * 3600 * 24)
+                          );
+
+                          if (daysRemaining <= 0) {
+                            return "Password Expired";
+                          }
+
+                          return `${daysRemaining} days remaining`;
+                        } catch (error) {
+                          console.error("Date calculation error:", error);
+                          return "Error calculating expiry";
+                        }
+                      })()}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-700">Last Changed:</span>
+                    <span className="text-gray-600">
+                      {user.passwordChangedAt &&
+                      user.passwordChangedAt !== user.joinDate
+                        ? new Date(user.passwordChangedAt).toLocaleDateString()
+                        : `Set on account creation (${new Date(
+                            user.joinDate
+                          ).toLocaleDateString()})`}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Account Security */}
+              <div>
+                <h3 className="text-lg font-semibold text-neutral-darkGray mb-2">
+                  Account Security
+                </h3>
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-gray-700">Account Status:</span>
+                    <span
+                      className={`font-medium ${
+                        user.accountLockUntil &&
+                        new Date(user.accountLockUntil) > new Date()
+                          ? "text-red-500"
+                          : "text-green-500"
+                      }`}
+                    >
+                      {user.accountLockUntil &&
+                      new Date(user.accountLockUntil) > new Date()
+                        ? `Locked (${Math.ceil(
+                            (new Date(user.accountLockUntil) - new Date()) /
+                              (1000 * 60)
+                          )} minutes remaining)`
+                        : "Active"}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-gray-700">
+                      Failed Login Attempts:
+                    </span>
+                    <span
+                      className={`font-medium ${
+                        user.failedLoginAttempts === 0
+                          ? "text-green-500"
+                          : user.failedLoginAttempts >= 3
+                          ? "text-red-500"
+                          : "text-orange-500"
+                      }`}
+                    >
+                      {user.failedLoginAttempts} of 5 attempts
+                      {user.failedLoginAttempts >= 3 &&
+                        user.failedLoginAttempts < 5 && (
+                          <span className="text-xs ml-2 text-red-500">
+                            ({5 - user.failedLoginAttempts} attempts remaining)
+                          </span>
+                        )}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-700">Last Login:</span>
+                    <span className="text-gray-600">
+                      {new Date(user.lastLogin).toLocaleString()}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Security Requirements */}
+              <div>
+                <h3 className="text-lg font-semibold text-neutral-darkGray mb-2">
+                  Security Requirements
+                </h3>
+                <div className="bg-gray-50 p-4 rounded-lg space-y-2">
+                  <div className="text-sm text-gray-700">
+                    <span className="font-medium">Password Requirements:</span>
+                    <ul className="list-disc ml-5 mt-1">
+                      <li>8-30 characters long</li>
+                      <li>At least one uppercase letter</li>
+                      <li>At least one lowercase letter</li>
+                      <li>At least one number</li>
+                      <li>At least one special character</li>
+                      <li>No spaces allowed</li>
+                    </ul>
+                  </div>
+                  <div className="text-sm text-gray-700 mt-3">
+                    <span className="font-medium">Account Security:</span>
+                    <ul className="list-disc ml-5 mt-1">
+                      <li>Password expires every 90 days</li>
+                      <li>Cannot reuse last 3 passwords</li>
+                      <li>Account locks after 5 failed login attempts</li>
+                      <li>15-minute lockout period after failed attempts</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
+              {/* Security Recommendations */}
+              {(user.failedLoginAttempts > 2 ||
+                new Date(user.passwordExpiresAt) <=
+                  new Date(+new Date() + 7 * 24 * 60 * 60 * 1000)) && (
+                <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-lg">
+                  <h4 className="font-semibold text-yellow-800 mb-2">
+                    Security Recommendations
+                  </h4>
+                  <ul className="list-disc ml-5 text-yellow-700">
+                    {user.failedLoginAttempts > 2 && (
+                      <li>
+                        Multiple failed login attempts detected. Consider
+                        changing your password.
+                      </li>
+                    )}
+                    {new Date(user.passwordExpiresAt) <=
+                      new Date(+new Date() + 7 * 24 * 60 * 60 * 1000) && (
+                      <li>
+                        Your password will expire soon. Please change it to
+                        maintain account security.
+                      </li>
+                    )}
+                  </ul>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Order History */}

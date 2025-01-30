@@ -33,11 +33,20 @@ function Orders() {
 
   const fetchOrders = async () => {
     try {
+      console.log("Fetching orders...");
       const { data } = await orderAPI.getAllOrders();
+      console.log("Orders response:", data);
+      if (!data.orders) {
+        console.error("No orders array in response:", data);
+        setOrders([]);
+        return;
+      }
       setOrders(data.orders);
     } catch (error) {
+      console.error("Error fetching orders:", error.response || error);
       const { message } = handleApiError(error);
-      toast.error(message);
+      toast.error("Failed to fetch orders: " + message);
+      setOrders([]);
     } finally {
       setIsLoading(false);
     }
@@ -71,8 +80,12 @@ function Orders() {
     const matchesSearch =
       searchTerm === "" ||
       order._id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.user.email.toLowerCase().includes(searchTerm.toLowerCase());
+      (order.user?.name || "")
+        .toLowerCase()
+        .includes(searchTerm.toLowerCase()) ||
+      (order.user?.email || "")
+        .toLowerCase()
+        .includes(searchTerm.toLowerCase());
 
     const matchesStatus = statusFilter === "" || order.status === statusFilter;
 
@@ -123,7 +136,9 @@ function Orders() {
               {recentDeliveries.map((order) => (
                 <tr key={order._id}>
                   <td className="px-4 py-2 font-medium">{order._id}</td>
-                  <td className="px-4 py-2">{order.user.name}</td>
+                  <td className="px-4 py-2">
+                    {order.user?.name || "Unknown User"}
+                  </td>
                   <td className="px-4 py-2">{formatDate(order.deliveredAt)}</td>
                   <td className="px-4 py-2">${order.totalAmount.toFixed(2)}</td>
                   <td className="px-4 py-2 capitalize">
@@ -215,9 +230,11 @@ function Orders() {
                   <td className="px-6 py-4 font-medium">{order._id}</td>
                   <td className="px-6 py-4">
                     <div>
-                      <p className="font-medium">{order.user.name}</p>
+                      <p className="font-medium">
+                        {order.user?.name || "Unknown User"}
+                      </p>
                       <p className="text-sm text-gray-500">
-                        {order.user.email}
+                        {order.user?.email || "No email"}
                       </p>
                     </div>
                   </td>
@@ -366,11 +383,15 @@ function Orders() {
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <p className="text-gray-600">Name</p>
-                      <p className="font-medium">{selectedOrder.user?.name}</p>
+                      <p className="font-medium">
+                        {selectedOrder.user?.name || "Unknown User"}
+                      </p>
                     </div>
                     <div>
                       <p className="text-gray-600">Email</p>
-                      <p className="font-medium">{selectedOrder.user?.email}</p>
+                      <p className="font-medium">
+                        {selectedOrder.user?.email || "No email"}
+                      </p>
                     </div>
                   </div>
                 </div>

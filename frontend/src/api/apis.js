@@ -11,19 +11,74 @@ const api = axios.create({
 });
 
 // Add token to requests if available
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem("token");
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem("token");
+    if (token) {
+      config.headers["Authorization"] = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => {
+    console.error("Request failed:", error.message);
+    return Promise.reject(error);
   }
-  return config;
-});
+);
+
+// Add response interceptor to handle token expiration
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    // Only log important errors
+    if (error.response?.status === 401) {
+      console.warn("Session expired. Please login again.");
+      // Clear auth data on unauthorized
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+      localStorage.removeItem("lastPasswordChange");
+
+      // Redirect to login if not already there
+      if (!window.location.pathname.includes("/login")) {
+        window.location.href = "/login";
+      }
+    } else if (error.response?.status === 500) {
+      console.error("Server error:", error.response.data.message);
+    }
+    return Promise.reject(error);
+  }
+);
 
 // Auth APIs
 export const authAPI = {
   register: (userData) => api.post("/auth/register", userData),
-  login: (credentials) => api.post("/auth/login", credentials),
-  logout: () => api.post("/auth/logout"),
+  login: async (credentials) => {
+    try {
+      const response = await api.post("/auth/login", credentials);
+      if (response.data.token) {
+        localStorage.setItem("token", response.data.token);
+        localStorage.setItem("user", JSON.stringify(response.data.user));
+        api.defaults.headers.common[
+          "Authorization"
+        ] = `Bearer ${response.data.token}`;
+      }
+      return response;
+    } catch (error) {
+      if (error.response?.status === 401) {
+        console.error("Login failed: Invalid credentials");
+      }
+      throw error;
+    }
+  },
+  logout: async () => {
+    try {
+      await api.post("/auth/logout");
+    } finally {
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+      localStorage.removeItem("lastPasswordChange");
+      delete api.defaults.headers.common["Authorization"];
+    }
+  },
   getProfile: () => api.get("/auth/me"),
 };
 
@@ -126,6 +181,12 @@ export const cartAPI = {
 
 // Error handler helper
 export const handleApiError = (error) => {
+  if (error.response?.status === 401) {
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    localStorage.removeItem("lastPasswordChange");
+  }
+
   const message =
     error.response?.data?.message || "Something went wrong. Please try again.";
   return {
@@ -163,3 +224,5 @@ const ProductList = () => {
   };
 };
 */
+
+export default api;

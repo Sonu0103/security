@@ -42,6 +42,13 @@ exports.addToCart = async (req, res, next) => {
       return next(new ErrorHandler("Product not found", 404));
     }
 
+    // Check if product is in stock
+    if (product.stock < quantity) {
+      return next(
+        new ErrorHandler(`Only ${product.stock} items available`, 400)
+      );
+    }
+
     let cart = await Cart.findOne({ user: req.user._id });
 
     // If cart doesn't exist, create one
