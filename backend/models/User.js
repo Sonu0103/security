@@ -1,5 +1,24 @@
 const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
+const crypto = require("crypto");
+
+// Encryption helper functions
+const encrypt = (text) => {
+  const cipher = crypto.createCipher("aes-256-cbc", process.env.ENCRYPTION_KEY);
+  let encrypted = cipher.update(text, "utf8", "hex");
+  encrypted += cipher.final("hex");
+  return encrypted;
+};
+
+const decrypt = (encrypted) => {
+  const decipher = crypto.createDecipher(
+    "aes-256-cbc",
+    process.env.ENCRYPTION_KEY
+  );
+  let decrypted = decipher.update(encrypted, "hex", "utf8");
+  decrypted += decipher.final("utf8");
+  return decrypted;
+};
 
 const userSchema = new mongoose.Schema(
   {
@@ -75,14 +94,40 @@ const userSchema = new mongoose.Schema(
       default: 0,
     },
     accountLockUntil: Date,
+    encryptedPhone: {
+      type: String,
+      select: false,
+    },
+    encryptedEmail: {
+      type: String,
+      select: false,
+    },
+    activeSessions: [
+      {
+        token: String,
+        device: String,
+        lastActive: Date,
+        expiresAt: Date,
+      },
+    ],
+    maxSessions: {
+      type: Number,
+      default: 5,
+    },
   },
   {
     timestamps: true,
   }
 );
 
-// Password encryption middleware
+// Encrypt sensitive data before saving
 userSchema.pre("save", async function (next) {
+  if (this.isModified("phone")) {
+    this.encryptedPhone = encrypt(this.phone);
+  }
+  if (this.isModified("email")) {
+    this.encryptedEmail = encrypt(this.email);
+  }
   if (this.isNew) {
     // For new accounts, set initial password dates
     this.passwordChangedAt = this.joinDate;
@@ -162,6 +207,46 @@ userSchema.methods.resetFailedAttempts = async function () {
   this.failedLoginAttempts = 0;
   this.accountLockUntil = undefined;
   await this.save();
+};
+
+// Add session management methods
+userSchema.methods.addSession = async function (token, device) {
+  // Remove expired sessions
+  this.activeSessions = this.activeSessions.filter(
+    (session) => session.expiresAt > new Date()
+  );
+
+  // Check max sessions
+  if (this.activeSessions.length >= this.maxSessions) {
+    // Remove oldest session
+    this.activeSessions.sort((a, b) => a.lastActive - b.lastActive);
+    this.activeSessions.shift();
+  }
+
+  // Add new session
+  this.activeSessions.push({
+    token,
+    device,
+    lastActive: new Date(),
+    expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
+  });
+
+  await this.save();
+};
+
+userSchema.methods.removeSession = async function (token) {
+  this.activeSessions = this.activeSessions.filter(
+    (session) => session.token !== token
+  );
+  await this.save();
+};
+
+userSchema.methods.updateSessionActivity = async function (token) {
+  const session = this.activeSessions.find((s) => s.token === token);
+  if (session) {
+    session.lastActive = new Date();
+    await this.save();
+  }
 };
 
 module.exports = mongoose.model("User", userSchema);

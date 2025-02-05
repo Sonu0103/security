@@ -8,14 +8,23 @@ const api = axios.create({
   headers: {
     "Content-Type": "application/json",
   },
+  withCredentials: true, // Enable sending cookies with cross-origin requests
 });
 
-// Add token to requests if available
+// Add CSRF token to requests if available
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem("token");
     if (token) {
       config.headers["Authorization"] = `Bearer ${token}`;
+    }
+    // Get CSRF token from cookie
+    const csrfToken = document.cookie
+      .split("; ")
+      .find((row) => row.startsWith("XSRF-TOKEN"))
+      ?.split("=")[1];
+    if (csrfToken) {
+      config.headers["X-XSRF-TOKEN"] = csrfToken;
     }
     return config;
   },

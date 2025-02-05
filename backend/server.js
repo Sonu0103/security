@@ -6,6 +6,10 @@ const errorMiddleware = require("./middleware/error");
 const fileUpload = require("express-fileupload");
 const path = require("path");
 const fs = require("fs");
+const cookieParser = require("cookie-parser");
+const securityMiddleware = require("./middleware/security");
+const session = require("express-session");
+const MongoStore = require("connect-mongo");
 
 // Route files
 const authRoutes = require("./routes/auth");
@@ -25,10 +29,42 @@ connectDB();
 
 const app = express();
 
-// Middleware
-app.use(cors());
+// Basic middleware
+app.use(cookieParser());
+app.use(
+  cors({
+    origin: process.env.FRONTEND_URL,
+    credentials: true,
+    exposedHeaders: ["set-cookie"],
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-XSRF-TOKEN"],
+  })
+);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Session configuration
+app.use(
+  session({
+    secret: process.env.SESSION_SECRET,
+    resave: false,
+    saveUninitialized: false,
+    store: MongoStore.create({
+      mongoUrl: process.env.MONGO_URI,
+      ttl: 24 * 60 * 60, // 1 day
+    }),
+    cookie: {
+      secure: process.env.NODE_ENV === "production",
+      httpOnly: true,
+      maxAge: 24 * 60 * 60 * 1000, // 1 day
+    },
+  })
+);
+
+// Apply security middleware
+securityMiddleware(app);
+
+// File upload middleware
 app.use(
   fileUpload({
     useTempFiles: true,
@@ -40,14 +76,23 @@ app.use(
 // Configure static file serving with caching options
 app.use(
   "/uploads",
+  (req, res, next) => {
+    res.setHeader("Access-Control-Allow-Origin", process.env.FRONTEND_URL);
+    res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+    res.setHeader("Access-Control-Allow-Credentials", "true");
+    res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+    if (req.method === "OPTIONS") {
+      return res.sendStatus(200);
+    }
+    next();
+  },
   express.static(path.join(__dirname, "uploads"), {
     maxAge: "1h", // Cache for 1 hour
     etag: true,
     lastModified: true,
     setHeaders: (res, path) => {
-      // Set CORS headers
-      res.setHeader("Access-Control-Allow-Origin", "*");
       res.setHeader("Cache-Control", "public, max-age=3600"); // 1 hour in seconds
+      res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
     },
   })
 );

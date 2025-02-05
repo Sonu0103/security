@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import axios from "axios";
 import { Link } from "react-router-dom";
 import { FaSearch } from "react-icons/fa";
+import { sanitizeInput } from "../../utils/security";
 
 function SearchProducts() {
   const [query, setQuery] = useState("");
@@ -13,10 +14,12 @@ function SearchProducts() {
     e.preventDefault();
     if (!query.trim()) return;
 
+    const sanitizedQuery = sanitizeInput(query);
     setLoading(true);
+
     try {
       const { data } = await axios.get(
-        `/api/products/search?query=${encodeURIComponent(query)}`
+        `/api/products/search?query=${encodeURIComponent(sanitizedQuery)}`
       );
       setProducts(data.products);
       setShowResults(true);

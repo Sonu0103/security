@@ -2,6 +2,8 @@ const Product = require("../models/Product");
 const ErrorHandler = require("../utils/errorHandler");
 const path = require("path");
 const fs = require("fs");
+const sanitizeHtml = require("sanitize-html");
+const xss = require("xss");
 
 // @desc    Create new product
 // @route   POST /api/products
@@ -39,6 +41,22 @@ exports.createProduct = async (req, res, next) => {
       return next(new ErrorHandler("Please provide all required fields", 400));
     }
 
+    // Sanitize text inputs
+    const sanitizedData = {
+      ...req.body,
+      name: xss(req.body.name),
+      description: sanitizeHtml(req.body.description, {
+        allowedTags: ["b", "i", "em", "strong", "p", "br"],
+        allowedAttributes: {},
+      }),
+      category: xss(req.body.category),
+      brand: xss(req.body.brand),
+      weight: xss(req.body.weight),
+      dimensions: xss(req.body.dimensions),
+      material: xss(req.body.material),
+      warranty: xss(req.body.warranty),
+    };
+
     // Create uploads directory if it doesn't exist
     const uploadDir = path.join(__dirname, "../uploads/products");
     if (!fs.existsSync(uploadDir)) {
@@ -55,12 +73,12 @@ exports.createProduct = async (req, res, next) => {
 
     // Create product with image path
     const product = await Product.create({
-      name: req.body.name,
-      description: req.body.description,
-      category: req.body.category,
-      price: Number(req.body.price),
-      stock: Number(req.body.stock),
-      isFeatured: req.body.isFeatured === "true",
+      name: sanitizedData.name,
+      description: sanitizedData.description,
+      category: sanitizedData.category,
+      price: Number(sanitizedData.price),
+      stock: Number(sanitizedData.stock),
+      isFeatured: sanitizedData.isFeatured === "true",
       image: imageUrl,
     });
 

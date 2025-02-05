@@ -182,6 +182,65 @@ function Profile() {
     }));
   };
 
+  const renderOrders = () => {
+    if (!orders.length) {
+      return <p>No orders found.</p>;
+    }
+
+    return orders.map((order) => (
+      <div key={order._id} className="order-item">
+        {order.items?.map((item) => {
+          if (!item || !item.product) return null;
+
+          return (
+            <div key={item._id} className="order-product">
+              <img
+                src={getFullImageUrl(item.product.image)}
+                alt={item.product.name || "Product"}
+              />
+              <div className="product-details">
+                <h4>{item.product.name || "Product Name Unavailable"}</h4>
+                <p>Quantity: {item.quantity}</p>
+                <p>Price: ${item.price}</p>
+              </div>
+            </div>
+          );
+        })}
+        <div className="order-info">
+          <p>Order ID: {order._id}</p>
+          <p>Total: ${order.totalAmount.toFixed(2)}</p>
+          <p>
+            Status:{" "}
+            {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
+          </p>
+        </div>
+      </div>
+    ));
+  };
+
+  const renderWishlist = () => {
+    if (!wishlist.length) {
+      return <p>Your wishlist is empty.</p>;
+    }
+
+    return wishlist.map((item) => {
+      if (!item || !item.product) return null;
+
+      return (
+        <div key={item._id} className="wishlist-item">
+          <img
+            src={getFullImageUrl(item.product.image)}
+            alt={item.product.name || "Product"}
+          />
+          <div className="product-details">
+            <h4>{item.product.name || "Product Name Unavailable"}</h4>
+            <p>Price: ${item.product.price.toFixed(2)}</p>
+          </div>
+        </div>
+      );
+    });
+  };
+
   if (isLoading) {
     return <div>Loading...</div>;
   }
@@ -562,74 +621,7 @@ function Profile() {
               ) : orders.length === 0 ? (
                 <p className="text-gray-500 text-center">No orders found</p>
               ) : (
-                orders.map((order) => (
-                  <div
-                    key={order._id}
-                    className="border rounded-lg p-4 space-y-4"
-                  >
-                    <div className="flex justify-between items-center">
-                      <div>
-                        <p className="font-semibold text-neutral-darkGray">
-                          Order #{order._id}
-                        </p>
-                        <p className="text-sm text-gray-600">
-                          {new Date(order.createdAt).toLocaleDateString()}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-semibold text-primary-green">
-                          ${order.totalAmount.toFixed(2)}
-                        </p>
-                        <span
-                          className={`inline-block px-3 py-1 text-sm rounded-full ${
-                            order.status === "delivered"
-                              ? "bg-green-100 text-green-800"
-                              : order.status === "cancelled"
-                              ? "bg-red-100 text-red-800"
-                              : "bg-blue-100 text-blue-800"
-                          }`}
-                        >
-                          {order.status.charAt(0).toUpperCase() +
-                            order.status.slice(1)}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {order.items.map((item) => (
-                        <div key={item._id} className="flex items-center gap-4">
-                          <img
-                            src={getFullImageUrl(item.product.image)}
-                            alt={item.product.name}
-                            className="w-16 h-16 object-cover rounded"
-                            onError={(e) => {
-                              if (
-                                !e.target.getAttribute("data-error-handled")
-                              ) {
-                                e.target.setAttribute(
-                                  "data-error-handled",
-                                  "true"
-                                );
-                                e.target.src = "/images/placeholder.png";
-                                console.error(
-                                  "Image load error:",
-                                  item.product.image
-                                );
-                              }
-                            }}
-                          />
-                          <div>
-                            <p className="font-medium text-neutral-darkGray">
-                              {item.product.name}
-                            </p>
-                            <p className="text-sm text-gray-600">
-                              Qty: {item.quantity} × ${item.price}
-                            </p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ))
+                <div className="orders-list">{renderOrders()}</div>
               )}
             </div>
           </div>
@@ -657,37 +649,7 @@ function Profile() {
                   No items in wishlist
                 </p>
               ) : (
-                wishlist.slice(0, 3).map((item) => (
-                  <div
-                    key={item._id}
-                    className="flex items-center gap-4 p-2 hover:bg-gray-50 rounded-lg cursor-pointer"
-                    onClick={() => navigate(`/product/${item.product._id}`)}
-                  >
-                    <img
-                      src={getFullImageUrl(item.product.image)}
-                      alt={item.product.name}
-                      className="w-16 h-16 object-cover rounded"
-                      onError={(e) => {
-                        if (!e.target.getAttribute("data-error-handled")) {
-                          e.target.setAttribute("data-error-handled", "true");
-                          e.target.src = "/images/placeholder.png";
-                          console.error(
-                            "Image load error:",
-                            item.product.image
-                          );
-                        }
-                      }}
-                    />
-                    <div>
-                      <p className="font-medium text-neutral-darkGray">
-                        {item.product.name}
-                      </p>
-                      <p className="text-primary-green font-semibold">
-                        ${item.product.price.toFixed(2)}
-                      </p>
-                    </div>
-                  </div>
-                ))
+                <div className="wishlist-list">{renderWishlist()}</div>
               )}
             </div>
           </div>

@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { XMarkIcon } from "@heroicons/react/24/outline";
 import { toast } from "react-hot-toast";
 import { productAPI, handleApiError } from "../../api/apis";
+import { sanitizeInput } from "../../utils/sanitize";
 
 function ProductModal({ isOpen, onClose, onSave, editingProduct }) {
   const [formData, setFormData] = useState({
@@ -149,70 +150,37 @@ function ProductModal({ isOpen, onClose, onSave, editingProduct }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!validateForm() || isSubmitting) return;
-
     setIsSubmitting(true);
+
     try {
-      const formDataToSend = new FormData();
+      // Sanitize form data
+      const sanitizedData = {
+        name: sanitizeInput(formData.name),
+        description: sanitizeInput(formData.description),
+        category: sanitizeInput(formData.category),
+        price: formData.price,
+        stock: formData.stock,
+        brand: sanitizeInput(formData.brand),
+        weight: sanitizeInput(formData.weight),
+        dimensions: sanitizeInput(formData.dimensions),
+        material: sanitizeInput(formData.material),
+        warranty: sanitizeInput(formData.warranty),
+        specifications: formData.specifications.map((spec) => ({
+          key: sanitizeInput(spec.key),
+          value: sanitizeInput(spec.value),
+        })),
+      };
 
-      // Convert price and stock to numbers
-      const numericPrice = parseFloat(formData.price);
-      const numericStock = parseInt(formData.stock, 10);
-
-      // Append all form fields to FormData
-      formDataToSend.append("name", formData.name.trim());
-      formDataToSend.append("description", formData.description.trim());
-      formDataToSend.append("category", formData.category);
-      formDataToSend.append("price", numericPrice);
-      formDataToSend.append("stock", numericStock);
-      formDataToSend.append("isFeatured", formData.isFeatured);
-      formDataToSend.append("brand", formData.brand);
-      formDataToSend.append("weight", formData.weight);
-      formDataToSend.append("dimensions", formData.dimensions);
-      formDataToSend.append("material", formData.material);
-      formDataToSend.append("warranty", formData.warranty);
-      formDataToSend.append(
-        "specifications",
-        JSON.stringify(formData.specifications)
-      );
-
-      // Append image if it exists
-      if (formData.image) {
-        formDataToSend.append("image", formData.image);
+      if (editingProduct) {
+        await productAPI.updateProduct(editingProduct._id, sanitizedData);
+        toast.success("Product updated successfully");
+      } else {
+        await productAPI.createProduct(sanitizedData);
+        toast.success("Product created successfully");
       }
-
-      // Show loading toast
-      const loadingToast = toast.loading("Saving product...");
-
-      try {
-        let response;
-        if (editingProduct) {
-          response = await productAPI.updateProduct(
-            editingProduct._id,
-            formDataToSend
-          );
-        } else {
-          response = await productAPI.createProduct(formDataToSend);
-        }
-
-        // Dismiss loading toast and show success
-        toast.dismiss(loadingToast);
-        toast.success(
-          editingProduct
-            ? "Product updated successfully"
-            : "Product created successfully"
-        );
-
-        // Wait for the response before closing
-        await onSave(response.data.product);
-        onClose();
-      } catch (error) {
-        // Dismiss loading toast and show error
-        toast.dismiss(loadingToast);
-        throw error;
-      }
+      onSave();
+      onClose();
     } catch (error) {
-      console.error("Error details:", error);
       const { message } = handleApiError(error);
       toast.error(message);
     } finally {
