@@ -3,6 +3,18 @@ import { useNavigate } from "react-router-dom";
 import { productAPI, handleApiError } from "../../api/apis";
 import toast from "react-hot-toast";
 
+// Add helper function for image URLs
+const getFullImageUrl = (imagePath) => {
+  if (!imagePath) return "/images/placeholder.png";
+  if (imagePath.startsWith("data:") || imagePath.startsWith("blob:"))
+    return imagePath;
+  if (imagePath.startsWith("http")) {
+    // Convert https to http if needed
+    return imagePath.replace("https://localhost", "http://localhost");
+  }
+  return `${import.meta.env.VITE_BACKEND_URL}${imagePath}`;
+};
+
 function Categories() {
   const navigate = useNavigate();
   const [products, setProducts] = useState([]);
@@ -64,9 +76,18 @@ function Categories() {
               }
             >
               <img
-                src={products[0]?.image || "/default-category.jpg"}
+                src={
+                  getFullImageUrl(products[0]?.image) || "/default-category.jpg"
+                }
                 alt={category}
                 className="w-full h-48 object-cover"
+                onError={(e) => {
+                  if (!e.target.getAttribute("data-error-handled")) {
+                    e.target.setAttribute("data-error-handled", "true");
+                    e.target.src = "/default-category.jpg";
+                    console.error("Image load error:", products[0]?.image);
+                  }
+                }}
               />
               <div className="p-4">
                 <h3 className="text-xl font-semibold text-neutral-darkGray mb-2">

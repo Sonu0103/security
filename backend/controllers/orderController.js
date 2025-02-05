@@ -149,7 +149,7 @@ exports.getMyOrders = async (req, res, next) => {
 // @access  Private
 exports.createOrder = async (req, res, next) => {
   try {
-    const { shippingAddress, paymentMethod } = req.body;
+    const { shippingAddress } = req.body;
 
     // Get user's cart
     const cart = await Cart.findOne({ user: req.user._id }).populate(
@@ -191,172 +191,31 @@ exports.createOrder = async (req, res, next) => {
       user: req.user._id,
       items: orderItems,
       shippingAddress,
-      paymentMethod,
+      paymentMethod: "cash",
       totalAmount,
       shippingFee,
-      status: paymentMethod === "cash" ? "processing" : "Payment Pending",
-      isPaid: paymentMethod === "cash",
-      paidAt: paymentMethod === "cash" ? Date.now() : null,
+      status: "processing",
+      isPaid: true,
+      paidAt: Date.now(),
     });
 
-    // If payment method is cash, update stock and clear cart immediately
-    if (paymentMethod === "cash") {
-      // Update product stock
-      for (const item of cart.items) {
-        await Product.findByIdAndUpdate(item.product._id, {
-          $inc: { stock: -item.quantity },
-        });
-      }
-
-      // Clear the cart
-      await Cart.findOneAndUpdate(
-        { user: req.user._id },
-        { $set: { items: [] } }
-      );
-
-      res.status(201).json({
-        success: true,
-        order,
-      });
-    }
-    // If payment method is esewa, initiate esewa payment
-    else if (paymentMethod === "esewa") {
-      // eSewa configuration
-      const ESEWA_TEST_URL = process.env.ESEWA_TEST_URL;
-      const MERCHANT_CODE = process.env.ESEWA_MERCHANT_CODE;
-      const BACKEND_URL = process.env.BACKEND_URL;
-
-      // Create eSewa payment data
-      const esewaData = {
-        amt: totalAmount - shippingFee, // actual amount
-        pdc: shippingFee, // delivery charge
-        psc: 0, // service charge
-        txAmt: 0, // tax amount
-        tAmt: totalAmount, // total amount
-        pid: order._id.toString(), // unique order id
-        scd: MERCHANT_CODE,
-        su: `${BACKEND_URL}/api/orders/esewa/success`,
-        fu: `${BACKEND_URL}/api/orders/esewa/failure?oid=${order._id}`,
-      };
-
-      res.status(201).json({
-        success: true,
-        order,
-        esewaData,
-        esewaUrl: ESEWA_TEST_URL,
-      });
-    }
-  } catch (error) {
-    next(error);
-  }
-};
-
-// @desc    Handle eSewa payment success
-// @route   GET /api/orders/esewa/success
-// @access  Public
-exports.handleEsewaSuccess = async (req, res, next) => {
-  try {
-    const { oid, amt, refId } = req.query;
-    console.log("eSewa success params:", { oid, amt, refId });
-
-    const order = await Order.findById(oid);
-    if (!order) {
-      return next(new ErrorHandler("Order not found", 404));
-    }
-
-    // Update order with payment details
-    order.isPaid = true;
-    order.paidAt = Date.now();
-    order.status = "processing";
-    order.paymentResult = {
-      status: "Success",
-      transactionId: refId,
-      amount: parseFloat(amt),
-      referenceId: refId,
-    };
-
-    await order.save();
-    console.log("Order updated successfully:", order._id);
-
-    // Update product stock for each item in the order
-    for (const item of order.items) {
-      await Product.findByIdAndUpdate(item.product, {
+    // Update product stock
+    for (const item of cart.items) {
+      await Product.findByIdAndUpdate(item.product._id, {
         $inc: { stock: -item.quantity },
       });
     }
 
-    // Clear the cart after successful payment
+    // Clear the cart
     await Cart.findOneAndUpdate(
-      { user: order.user },
-      { $set: { items: [] } },
-      { new: true }
+      { user: req.user._id },
+      { $set: { items: [] } }
     );
-    console.log("Cart cleared for user:", order.user);
 
-    // Send HTML response with redirect script
-    res.send(`
-      <html>
-        <head>
-          <title>Payment Successful</title>
-          <script>
-            function handlePaymentSuccess() {
-              // Clear cart data from localStorage if any
-              localStorage.removeItem('cart');
-              sessionStorage.setItem('paymentSuccess', 'true');
-              window.location.href = "${process.env.FRONTEND_URL}/orders?from=payment";
-            }
-            window.onload = handlePaymentSuccess;
-          </script>
-        </head>
-        <body>
-          <div style="display: flex; justify-content: center; align-items: center; height: 100vh; font-family: Arial, sans-serif;">
-            <div style="text-align: center;">
-              <h2 style="color: #4CAF50;">Payment Successful!</h2>
-              <p>Redirecting to your orders...</p>
-            </div>
-          </div>
-        </body>
-      </html>
-    `);
-  } catch (error) {
-    next(error);
-  }
-};
-
-// @desc    Handle eSewa payment failure
-// @route   GET /api/orders/esewa/failure
-// @access  Public
-exports.handleEsewaFailure = async (req, res, next) => {
-  try {
-    const { oid } = req.query;
-    console.log("eSewa failure params:", { oid });
-
-    if (oid) {
-      // Delete the pending order
-      await Order.findOneAndDelete({ _id: oid, status: "Payment Pending" });
-      console.log("Temporary order deleted:", oid);
-    }
-
-    // Send HTML response with redirect script
-    res.send(`
-      <html>
-        <head>
-          <title>Payment Failed</title>
-          <script>
-            sessionStorage.setItem('paymentError', 'Payment failed. Please try again.');
-            window.location.href = "${process.env.FRONTEND_URL}/checkout";
-          </script>
-        </head>
-        <body>
-          <div style="display: flex; justify-content: center; align-items: center; height: 100vh; font-family: Arial, sans-serif;">
-            <div style="text-align: center;">
-              <h2 style="color: #DC2626;">Payment Failed</h2>
-              <p>Redirecting back to checkout...</p>
-            </div>
-          </div>
-        </body>
-      </html>
-    `);
+    res.status(201).json({
+      success: true,
+      order,
+    });
   } catch (error) {
     next(error);
   }

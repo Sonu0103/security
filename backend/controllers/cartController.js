@@ -9,7 +9,7 @@ exports.getCart = async (req, res, next) => {
   try {
     let cart = await Cart.findOne({ user: req.user._id }).populate(
       "items.product",
-      "name price image"
+      "name price image stock _id"
     );
 
     // If cart doesn't exist, create one
@@ -18,6 +18,12 @@ exports.getCart = async (req, res, next) => {
         user: req.user._id,
         items: [],
       });
+    }
+
+    // Filter out any items where product is null (in case product was deleted)
+    if (cart.items) {
+      cart.items = cart.items.filter((item) => item.product != null);
+      await cart.save();
     }
 
     res.status(200).json({
@@ -67,6 +73,13 @@ exports.addToCart = async (req, res, next) => {
     if (existingItem) {
       // Update quantity if product exists
       existingItem.quantity += quantity;
+
+      // Verify the new quantity doesn't exceed stock
+      if (existingItem.quantity > product.stock) {
+        return next(
+          new ErrorHandler(`Only ${product.stock} items available`, 400)
+        );
+      }
     } else {
       // Add new item if product doesn't exist
       cart.items.push({ product: productId, quantity });
@@ -75,7 +88,11 @@ exports.addToCart = async (req, res, next) => {
     await cart.save();
 
     // Populate product details before sending response
-    cart = await cart.populate("items.product", "name price image");
+    cart = await cart.populate("items.product", "name price image stock _id");
+
+    // Filter out any items where product is null
+    cart.items = cart.items.filter((item) => item.product != null);
+    await cart.save();
 
     res.status(200).json({
       success: true,
@@ -86,7 +103,7 @@ exports.addToCart = async (req, res, next) => {
   }
 };
 
-// @desc    Update cart item quantity
+// @desc    Update cart item
 // @route   PUT /api/cart/:productId
 // @access  Private
 exports.updateCartItem = async (req, res, next) => {
@@ -94,44 +111,40 @@ exports.updateCartItem = async (req, res, next) => {
     const { quantity } = req.body;
     const { productId } = req.params;
 
-    // Validate quantity
-    if (quantity < 1) {
-      return next(new ErrorHandler("Quantity must be at least 1", 400));
-    }
-
-    // Check product stock
+    // Validate product exists and has enough stock
     const product = await Product.findById(productId);
     if (!product) {
       return next(new ErrorHandler("Product not found", 404));
     }
 
-    // Check if quantity is within stock limits
     if (quantity > product.stock) {
       return next(
         new ErrorHandler(`Only ${product.stock} items available`, 400)
       );
     }
 
-    let cart = await Cart.findOne({ user: req.user._id });
+    const cart = await Cart.findOne({ user: req.user._id });
     if (!cart) {
       return next(new ErrorHandler("Cart not found", 404));
     }
 
-    // Find the item in cart
-    const itemIndex = cart.items.findIndex(
+    const cartItem = cart.items.find(
       (item) => item.product.toString() === productId
     );
 
-    if (itemIndex === -1) {
+    if (!cartItem) {
       return next(new ErrorHandler("Item not found in cart", 404));
     }
 
-    // Update quantity
-    cart.items[itemIndex].quantity = quantity;
+    cartItem.quantity = quantity;
     await cart.save();
 
     // Populate product details before sending response
-    cart = await cart.populate("items.product", "name price image stock");
+    await cart.populate("items.product", "name price image stock _id");
+
+    // Filter out any items where product is null
+    cart.items = cart.items.filter((item) => item.product != null);
+    await cart.save();
 
     res.status(200).json({
       success: true,
@@ -156,7 +169,13 @@ exports.removeFromCart = async (req, res, next) => {
       (item) => item.product.toString() !== req.params.productId
     );
     await cart.save();
-    await cart.populate("items.product", "name price image stock");
+
+    // Populate product details before sending response
+    await cart.populate("items.product", "name price image stock _id");
+
+    // Filter out any items where product is null
+    cart.items = cart.items.filter((item) => item.product != null);
+    await cart.save();
 
     res.status(200).json({
       success: true,

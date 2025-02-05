@@ -8,14 +8,8 @@ const {
   getOrderDetails,
   updateOrder,
   deleteOrder,
-  handleEsewaSuccess,
-  handleEsewaFailure,
   getRecentDeliveries,
 } = require("../controllers/orderController");
-
-// Public routes for eSewa callbacks
-router.get("/esewa/success", handleEsewaSuccess);
-router.get("/esewa/failure", handleEsewaFailure);
 
 // Protected routes
 router.use(protect);

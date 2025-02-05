@@ -8,6 +8,18 @@ import { useFavorites } from "../context/FavoritesContext";
 import { useCart } from "../context/CartContext";
 import toast from "react-hot-toast";
 
+// Add helper function for image URLs
+const getFullImageUrl = (imagePath) => {
+  if (!imagePath) return "/images/placeholder.png";
+  if (imagePath.startsWith("data:") || imagePath.startsWith("blob:"))
+    return imagePath;
+  if (imagePath.startsWith("http")) {
+    // Convert https to http if needed
+    return imagePath.replace("https://localhost", "http://localhost");
+  }
+  return `${import.meta.env.VITE_BACKEND_URL}${imagePath}`;
+};
+
 function ProductDetails() {
   const { category } = useParams();
   const navigate = useNavigate();
@@ -27,6 +39,9 @@ function ProductDetails() {
     try {
       setIsLoading(true);
       const { data } = await productAPI.getProductsByCategory(category);
+      if (!data || !data.products) {
+        throw new Error("No products found");
+      }
       setProducts(data.products);
     } catch (error) {
       const { message } = handleApiError(error);
@@ -46,13 +61,29 @@ function ProductDetails() {
       clothing: "Clothing",
       accessories: "Accessories",
     };
-    return categoryMap[urlCategory.toLowerCase()] || urlCategory;
+    return categoryMap[urlCategory?.toLowerCase()] || urlCategory;
   };
 
   if (isLoading) {
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="text-center">Loading...</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="text-center text-highlight-red">
+          <p>{error}</p>
+          <button
+            onClick={() => navigate("/")}
+            className="mt-4 bg-primary-blue text-white px-6 py-2 rounded-lg hover:bg-blue-600"
+          >
+            Go Back Home
+          </button>
+        </div>
       </div>
     );
   }
@@ -71,17 +102,27 @@ function ProductDetails() {
           >
             <div className="relative">
               <img
-                src={product.image}
+                src={getFullImageUrl(product.image)}
                 alt={product.name}
                 className="w-full h-64 object-cover"
                 onClick={() => navigate(`/product/${product._id}`)}
+                onError={(e) => {
+                  if (!e.target.getAttribute("data-error-handled")) {
+                    e.target.setAttribute("data-error-handled", "true");
+                    e.target.src = "/images/placeholder.png";
+                    console.error("Image load error:", product.image);
+                  }
+                }}
               />
               <button
-                onClick={() =>
-                  isFavorite(product._id)
-                    ? removeFromFavorites(product._id)
-                    : addToFavorites(product)
-                }
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (isFavorite(product._id)) {
+                    removeFromFavorites(product._id);
+                  } else {
+                    addToFavorites(product);
+                  }
+                }}
                 className="absolute top-4 right-4 p-2 bg-white rounded-full shadow-md hover:bg-gray-100"
               >
                 {isFavorite(product._id) ? (

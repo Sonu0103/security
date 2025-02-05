@@ -4,6 +4,18 @@ import ProductModal from "../components/ProductModal";
 import { productAPI, handleApiError } from "../../api/apis";
 import toast from "react-hot-toast";
 
+// Add helper function for image URLs
+const getFullImageUrl = (imagePath) => {
+  if (!imagePath) return "/images/placeholder.png";
+  if (imagePath.startsWith("data:") || imagePath.startsWith("blob:"))
+    return imagePath;
+  if (imagePath.startsWith("http")) {
+    // Convert https to http if needed
+    return imagePath.replace("https://localhost", "http://localhost");
+  }
+  return `${import.meta.env.VITE_BACKEND_URL}${imagePath}`;
+};
+
 function Products() {
   const [products, setProducts] = useState([]);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -93,12 +105,15 @@ function Products() {
                 <tr key={product._id}>
                   <td className="px-6 py-4">
                     <img
-                      src={product.image}
+                      src={getFullImageUrl(product.image)}
                       alt={product.name}
                       className="h-12 w-12 object-cover rounded"
                       onError={(e) => {
-                        e.target.src = "/placeholder.png";
-                        console.error("Image load error:", product.image);
+                        if (!e.target.getAttribute("data-error-handled")) {
+                          e.target.setAttribute("data-error-handled", "true");
+                          e.target.src = "/images/placeholder.png";
+                          console.error("Image load error:", product.image);
+                        }
                       }}
                     />
                   </td>

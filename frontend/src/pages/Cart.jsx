@@ -4,6 +4,18 @@ import { useCart } from "../context/CartContext";
 import { useEffect, useState } from "react";
 import { toast } from "react-hot-toast";
 
+// Add helper function for image URLs
+const getFullImageUrl = (imagePath) => {
+  if (!imagePath) return "/images/placeholder.png";
+  if (imagePath.startsWith("data:") || imagePath.startsWith("blob:"))
+    return imagePath;
+  if (imagePath.startsWith("http")) {
+    // Convert https to http if needed
+    return imagePath.replace("https://localhost", "http://localhost");
+  }
+  return `${import.meta.env.VITE_BACKEND_URL}${imagePath}`;
+};
+
 function Cart() {
   const navigate = useNavigate();
   const { cartItems, updateCartItem, removeFromCart, cartTotal, loading } =
@@ -21,13 +33,6 @@ function Cart() {
       return;
     }
   }, [navigate]);
-
-  // Helper function to get full image URL
-  const getFullImageUrl = (imagePath) => {
-    if (!imagePath) return "/default-product.jpg";
-    if (imagePath.startsWith("http")) return imagePath;
-    return `${import.meta.env.VITE_BACKEND_URL}${imagePath}`;
-  };
 
   if (loading) {
     return (
@@ -59,6 +64,7 @@ function Cart() {
   }
 
   const handleQuantityChange = async (productId, newQuantity, stock) => {
+    if (!productId) return;
     try {
       if (newQuantity < 1 || newQuantity > stock) return;
 
@@ -72,6 +78,7 @@ function Cart() {
   };
 
   const handleRemoveItem = async (productId) => {
+    if (!productId) return;
     try {
       setUpdatingItems((prev) => ({ ...prev, [productId]: true }));
       await removeFromCart(productId);
@@ -89,70 +96,84 @@ function Cart() {
       </h1>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-4">
-          {cartItems.map((item) => (
-            <div
-              key={item.product._id}
-              className="bg-white rounded-lg shadow-md p-4 flex items-center gap-4"
-            >
-              <img
-                src={getFullImageUrl(item.product.image)}
-                alt={item.product.name}
-                className="w-24 h-24 object-cover rounded-lg cursor-pointer"
-                onClick={() => navigate(`/product/${item.product._id}`)}
-              />
-              <div className="flex-grow">
-                <h3 className="text-lg font-semibold text-neutral-darkGray">
-                  {item.product.name}
-                </h3>
-                <p className="text-primary-green font-bold">
-                  ${(item.product.price * item.quantity).toFixed(2)}
-                </p>
-                <div className="flex items-center gap-4 mt-2">
-                  <div className="flex items-center border rounded">
+          {cartItems.map((item) => {
+            // Skip rendering if product is null or undefined
+            if (!item?.product) return null;
+
+            return (
+              <div
+                key={item.product._id}
+                className="bg-white rounded-lg shadow-md p-4 flex items-center gap-4"
+              >
+                <img
+                  src={getFullImageUrl(item.product.image)}
+                  alt={item.product.name}
+                  className="w-24 h-24 object-cover rounded-lg cursor-pointer"
+                  onClick={() => navigate(`/product/${item.product._id}`)}
+                  onError={(e) => {
+                    if (!e.target.getAttribute("data-error-handled")) {
+                      e.target.setAttribute("data-error-handled", "true");
+                      e.target.src = "/images/placeholder.png";
+                      console.error("Image load error:", item.product.image);
+                    }
+                  }}
+                />
+                <div className="flex-grow">
+                  <h3 className="text-lg font-semibold text-neutral-darkGray">
+                    {item.product.name}
+                  </h3>
+                  <p className="text-primary-green font-bold">
+                    ${(item.product.price * item.quantity).toFixed(2)}
+                  </p>
+                  <div className="flex items-center gap-4 mt-2">
+                    <div className="flex items-center border rounded">
+                      <button
+                        onClick={() =>
+                          handleQuantityChange(
+                            item.product._id,
+                            item.quantity - 1,
+                            item.product.stock
+                          )
+                        }
+                        className="px-3 py-1 hover:bg-gray-100 transition-colors disabled:opacity-50"
+                        disabled={
+                          item.quantity <= 1 || updatingItems[item.product._id]
+                        }
+                      >
+                        -
+                      </button>
+                      <span className="px-3 py-1 border-x">
+                        {item.quantity}
+                      </span>
+                      <button
+                        onClick={() =>
+                          handleQuantityChange(
+                            item.product._id,
+                            item.quantity + 1,
+                            item.product.stock
+                          )
+                        }
+                        className="px-3 py-1 hover:bg-gray-100 transition-colors disabled:opacity-50"
+                        disabled={
+                          item.quantity >= item.product.stock ||
+                          updatingItems[item.product._id]
+                        }
+                      >
+                        +
+                      </button>
+                    </div>
                     <button
-                      onClick={() =>
-                        handleQuantityChange(
-                          item.product._id,
-                          item.quantity - 1,
-                          item.product.stock
-                        )
-                      }
-                      className="px-3 py-1 hover:bg-gray-100 transition-colors disabled:opacity-50"
-                      disabled={
-                        item.quantity <= 1 || updatingItems[item.product._id]
-                      }
+                      onClick={() => handleRemoveItem(item.product._id)}
+                      className="text-highlight-red hover:text-red-700 transition-colors disabled:opacity-50"
+                      disabled={updatingItems[item.product._id]}
                     >
-                      -
-                    </button>
-                    <span className="px-3 py-1 border-x">{item.quantity}</span>
-                    <button
-                      onClick={() =>
-                        handleQuantityChange(
-                          item.product._id,
-                          item.quantity + 1,
-                          item.product.stock
-                        )
-                      }
-                      className="px-3 py-1 hover:bg-gray-100 transition-colors disabled:opacity-50"
-                      disabled={
-                        item.quantity >= item.product.stock ||
-                        updatingItems[item.product._id]
-                      }
-                    >
-                      +
+                      <TrashIcon className="h-5 w-5" />
                     </button>
                   </div>
-                  <button
-                    onClick={() => handleRemoveItem(item.product._id)}
-                    className="text-highlight-red hover:text-red-700 transition-colors disabled:opacity-50"
-                    disabled={updatingItems[item.product._id]}
-                  >
-                    <TrashIcon className="h-5 w-5" />
-                  </button>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         <div className="lg:col-span-1">

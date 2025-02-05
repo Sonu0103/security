@@ -55,7 +55,9 @@ export function FavoritesProvider({ children }) {
     try {
       await wishlistAPI.removeFromWishlist(productId);
       setFavorites((prev) =>
-        prev.filter((product) => product._id !== productId)
+        prev.filter(
+          (product) => product && product._id && product._id !== productId
+        )
       );
       toast.success("Removed from wishlist");
     } catch (error) {
@@ -65,7 +67,8 @@ export function FavoritesProvider({ children }) {
   };
 
   const isFavorite = (productId) => {
-    return favorites.some((product) => product._id === productId);
+    if (!productId || !favorites) return false;
+    return favorites.some((product) => product && product._id === productId);
   };
 
   return (

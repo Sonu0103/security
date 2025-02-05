@@ -14,6 +14,18 @@ import toast from "react-hot-toast";
 import { checkAuth } from "../../utils/auth";
 import HeaderSearch from "./HeaderSearch";
 
+// Add helper function for image URLs
+const getFullImageUrl = (imagePath) => {
+  if (!imagePath) return "/images/default-avatar.png";
+  if (imagePath.startsWith("data:") || imagePath.startsWith("blob:"))
+    return imagePath;
+  if (imagePath.startsWith("http")) {
+    // Convert https to http if needed
+    return imagePath.replace("https://localhost", "http://localhost");
+  }
+  return `${import.meta.env.VITE_BACKEND_URL}${imagePath}`;
+};
+
 function Header() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -195,9 +207,16 @@ function Header() {
                 >
                   {user.avatar ? (
                     <img
-                      src={`${import.meta.env.VITE_BACKEND_URL}${user.avatar}`}
+                      src={getFullImageUrl(user.avatar)}
                       alt={user.name}
                       className="w-8 h-8 rounded-full object-cover"
+                      onError={(e) => {
+                        if (!e.target.getAttribute("data-error-handled")) {
+                          e.target.setAttribute("data-error-handled", "true");
+                          e.target.src = "/images/default-avatar.png";
+                          console.error("Avatar load error:", user.avatar);
+                        }
+                      }}
                     />
                   ) : (
                     <div className="w-8 h-8 rounded-full bg-primary-blue text-white flex items-center justify-center">

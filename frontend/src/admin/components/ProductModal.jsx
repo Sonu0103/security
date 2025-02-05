@@ -49,7 +49,7 @@ function ProductModal({ isOpen, onClose, onSave, editingProduct }) {
         warranty: editingProduct.warranty || "",
         specifications: editingProduct.specifications || [],
       });
-      setImagePreview(editingProduct.image);
+      setImagePreview(getFullImageUrl(editingProduct.image));
     } else {
       setFormData({
         name: "",
@@ -112,6 +112,18 @@ function ProductModal({ isOpen, onClose, onSave, editingProduct }) {
       setImagePreview(reader.result);
     };
     reader.readAsDataURL(file);
+  };
+
+  // Add function to get full image URL
+  const getFullImageUrl = (imagePath) => {
+    if (!imagePath) return "/images/placeholder.png";
+    if (imagePath.startsWith("data:") || imagePath.startsWith("blob:"))
+      return imagePath;
+    if (imagePath.startsWith("http")) {
+      // Convert https to http if needed
+      return imagePath.replace("https://localhost", "http://localhost");
+    }
+    return `${import.meta.env.VITE_BACKEND_URL}${imagePath}`;
   };
 
   const validateForm = () => {
@@ -383,12 +395,18 @@ function ProductModal({ isOpen, onClose, onSave, editingProduct }) {
                     >
                       {imagePreview ? (
                         <img
-                          src={imagePreview}
+                          src={getFullImageUrl(imagePreview)}
                           alt="Preview"
                           className="mx-auto max-h-64 object-contain"
                           onError={(e) => {
-                            e.target.src = "/placeholder.png";
-                            console.error("Preview image load error");
+                            if (!e.target.getAttribute("data-error-handled")) {
+                              e.target.setAttribute(
+                                "data-error-handled",
+                                "true"
+                              );
+                              e.target.src = "/images/placeholder.png";
+                              console.error("Preview image load error");
+                            }
                           }}
                         />
                       ) : (
@@ -397,7 +415,7 @@ function ProductModal({ isOpen, onClose, onSave, editingProduct }) {
                             Click to upload product image
                           </p>
                           <p className="text-sm text-gray-400">
-                            PNG, JPG up to 5MB
+                            PNG, JPG up to 2MB
                           </p>
                         </div>
                       )}
@@ -420,7 +438,7 @@ function ProductModal({ isOpen, onClose, onSave, editingProduct }) {
                       <div className="aspect-w-1 aspect-h-1">
                         {imagePreview ? (
                           <img
-                            src={imagePreview}
+                            src={getFullImageUrl(imagePreview)}
                             alt={formData.name}
                             className="w-full h-48 object-cover"
                           />

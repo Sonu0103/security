@@ -17,10 +17,12 @@ const orderSchema = new mongoose.Schema(
         quantity: {
           type: Number,
           required: true,
+          min: [1, "Quantity cannot be less than 1"],
         },
         price: {
           type: Number,
           required: true,
+          min: [0, "Price cannot be negative"],
         },
       },
     ],
@@ -57,34 +59,24 @@ const orderSchema = new mongoose.Schema(
     paymentMethod: {
       type: String,
       required: true,
-      enum: ["cash", "esewa"],
-    },
-    paymentResult: {
-      status: String,
-      transactionId: String,
-      amount: Number,
-      referenceId: String,
+      enum: ["cash"],
+      default: "cash",
     },
     totalAmount: {
       type: Number,
       required: true,
+      min: [0, "Total amount cannot be negative"],
     },
     shippingFee: {
       type: Number,
       required: true,
-      default: 10,
+      min: [0, "Shipping fee cannot be negative"],
     },
     status: {
       type: String,
-      enum: [
-        "pending",
-        "processing",
-        "shipped",
-        "delivered",
-        "cancelled",
-        "Payment Pending",
-      ],
-      default: "pending",
+      required: true,
+      enum: ["processing", "shipped", "delivered", "cancelled"],
+      default: "processing",
     },
     isPaid: {
       type: Boolean,
@@ -99,10 +91,6 @@ const orderSchema = new mongoose.Schema(
     },
     deliveredAt: {
       type: Date,
-    },
-    trackingInfo: {
-      type: String,
-      default: "",
     },
   },
   {

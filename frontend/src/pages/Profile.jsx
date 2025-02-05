@@ -4,6 +4,18 @@ import { PencilIcon } from "@heroicons/react/24/outline";
 import { profileAPI, orderAPI, wishlistAPI, handleApiError } from "../api/apis";
 import toast from "react-hot-toast";
 
+// Add helper function for image URLs
+const getFullImageUrl = (imagePath) => {
+  if (!imagePath) return "/images/placeholder.png";
+  if (imagePath.startsWith("data:") || imagePath.startsWith("blob:"))
+    return imagePath;
+  if (imagePath.startsWith("http")) {
+    // Convert https to http if needed
+    return imagePath.replace("https://localhost", "http://localhost");
+  }
+  return `${import.meta.env.VITE_BACKEND_URL}${imagePath}`;
+};
+
 function Profile() {
   const navigate = useNavigate();
   const [isEditing, setIsEditing] = useState(false);
@@ -586,21 +598,23 @@ function Profile() {
                       {order.items.map((item) => (
                         <div key={item._id} className="flex items-center gap-4">
                           <img
-                            src={
-                              item.product.image.startsWith("http")
-                                ? item.product.image
-                                : `${import.meta.env.VITE_BACKEND_URL}${
-                                    item.product.image
-                                  }`
-                            }
+                            src={getFullImageUrl(item.product.image)}
                             alt={item.product.name}
                             className="w-16 h-16 object-cover rounded"
                             onError={(e) => {
-                              console.error(
-                                "Error loading image:",
-                                e.target.src
-                              );
-                              e.target.src = "/placeholder-image.jpg"; // Add a placeholder image
+                              if (
+                                !e.target.getAttribute("data-error-handled")
+                              ) {
+                                e.target.setAttribute(
+                                  "data-error-handled",
+                                  "true"
+                                );
+                                e.target.src = "/images/placeholder.png";
+                                console.error(
+                                  "Image load error:",
+                                  item.product.image
+                                );
+                              }
                             }}
                           />
                           <div>
@@ -650,18 +664,18 @@ function Profile() {
                     onClick={() => navigate(`/product/${item.product._id}`)}
                   >
                     <img
-                      src={
-                        item.product.image.startsWith("http")
-                          ? item.product.image
-                          : `${import.meta.env.VITE_BACKEND_URL}${
-                              item.product.image
-                            }`
-                      }
+                      src={getFullImageUrl(item.product.image)}
                       alt={item.product.name}
                       className="w-16 h-16 object-cover rounded"
                       onError={(e) => {
-                        console.error("Error loading image:", e.target.src);
-                        e.target.src = "/placeholder-image.jpg"; // Add a placeholder image
+                        if (!e.target.getAttribute("data-error-handled")) {
+                          e.target.setAttribute("data-error-handled", "true");
+                          e.target.src = "/images/placeholder.png";
+                          console.error(
+                            "Image load error:",
+                            item.product.image
+                          );
+                        }
                       }}
                     />
                     <div>
@@ -687,11 +701,18 @@ function Profile() {
             <img
               src={
                 user?.avatar
-                  ? `${import.meta.env.VITE_BACKEND_URL}${user.avatar}`
-                  : "/default-avatar.jpg"
+                  ? getFullImageUrl(user.avatar)
+                  : "/images/default-avatar.png"
               }
               alt="Profile"
               className="w-full h-full rounded-full object-cover"
+              onError={(e) => {
+                if (!e.target.getAttribute("data-error-handled")) {
+                  e.target.setAttribute("data-error-handled", "true");
+                  e.target.src = "/images/default-avatar.png";
+                  console.error("Avatar load error:", user?.avatar);
+                }
+              }}
             />
             <label className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 rounded-full opacity-0 group-hover:opacity-100 cursor-pointer transition-opacity">
               <input

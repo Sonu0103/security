@@ -8,6 +8,18 @@ import { useFavorites } from "../../context/FavoritesContext";
 import { useCart } from "../../context/CartContext";
 import toast from "react-hot-toast";
 
+// Add helper function for image URLs
+const getFullImageUrl = (imagePath) => {
+  if (!imagePath) return "/images/placeholder.png";
+  if (imagePath.startsWith("data:") || imagePath.startsWith("blob:"))
+    return imagePath;
+  if (imagePath.startsWith("http")) {
+    // Convert https to http if needed
+    return imagePath.replace("https://localhost", "http://localhost");
+  }
+  return `${import.meta.env.VITE_BACKEND_URL}${imagePath}`;
+};
+
 function FeaturedProducts() {
   const navigate = useNavigate();
   const { addToFavorites, removeFromFavorites, isFavorite } = useFavorites();
@@ -70,9 +82,16 @@ function FeaturedProducts() {
             >
               <div className="relative">
                 <img
-                  src={product.image}
+                  src={getFullImageUrl(product.image)}
                   alt={product.name}
                   className="w-full h-64 object-cover"
+                  onError={(e) => {
+                    if (!e.target.getAttribute("data-error-handled")) {
+                      e.target.setAttribute("data-error-handled", "true");
+                      e.target.src = "/images/placeholder.png";
+                      console.error("Image load error:", product.image);
+                    }
+                  }}
                 />
                 <button
                   onClick={(e) => handleFavoriteClick(e, product)}

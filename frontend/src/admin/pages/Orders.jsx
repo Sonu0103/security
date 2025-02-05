@@ -240,33 +240,20 @@ function Orders() {
                   </td>
                   <td className="px-6 py-4">{formatDate(order.createdAt)}</td>
                   <td className="px-6 py-4">${order.totalAmount.toFixed(2)}</td>
-                  <td className="px-6 py-4 capitalize">
-                    {order.paymentMethod === "esewa"
-                      ? "eSewa"
-                      : "Cash on Delivery"}
-                  </td>
                   <td className="px-6 py-4">
-                    <div className="flex items-center space-x-2">
-                      <span
-                        className={`inline-block px-2 py-1 text-sm rounded-full ${
-                          order.isPaid
-                            ? "bg-green-100 text-green-800"
-                            : "bg-yellow-100 text-yellow-800"
-                        }`}
-                      >
+                    <div className="text-sm text-gray-600">
+                      <p>
+                        <span className="font-medium">Payment Method:</span>{" "}
+                        Cash on Delivery
+                      </p>
+                      <p>
+                        <span className="font-medium">Payment Status:</span>{" "}
                         {order.isPaid ? "Paid" : "Pending"}
-                      </span>
-                      {!order.isPaid && order.paymentMethod === "cash" && (
-                        <button
-                          onClick={() =>
-                            handleStatusUpdate(order._id, { isPaid: true })
-                          }
-                          className="text-green-600 hover:text-green-700"
-                          title="Mark as Paid"
-                        >
-                          <CheckCircleIcon className="h-5 w-5" />
-                        </button>
-                      )}
+                      </p>
+                      <p>
+                        <span className="font-medium">Order Status:</span>{" "}
+                        {order.status}
+                      </p>
                     </div>
                   </td>
                   <td className="px-6 py-4">
